@@ -1,0 +1,140 @@
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #222222; /* Charcoal body background */
+  color: #30d630; /* Body text = Green */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  font-family: monospace;
+}
+
+main {
+  text-align: center;
+}
+
+/* Generic buttons (not the main CTA) still on-brand */
+button {
+  padding: 15px 30px;
+  font-size: 18px;
+  color: #f9d580; /* Cream text */
+  background-color: #d5502c; /* Red */
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease,
+    transform 0.08s ease;
+  box-shadow: 0px 2px 4px #111111; /* Brown shadow */
+}
+
+button:hover {
+  background-color: #b43f20; /* Dark Red */
+  box-shadow: 0px 4px 8px rgba(60, 38, 0, 0.8);
+}
+
+button:active {
+  transform: scale(0.98);
+}
+
+h1 {
+  font-size: 3rem;
+  color: #f9d580; /* Cream headings */
+}
+
+p {
+  font-size: 1.5rem;
+}
+
+/* Spin-the-wheel styles (rethemed to SUPRAWR palette) */
+
+.wheel-container {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  margin: 20px auto;
+}
+
+.wheel {
+  width: 100%;
+  height: 100%;
+  border: 10px solid #3c2600; /* Brown */
+  border-radius: 50%;
+  background: conic-gradient(
+    #d5502c 0% 25%,
+    /* Red */ #b39628 25% 50%,
+    /* Gold */ #30d630 50% 75%,
+    /* Green */ #f9d580 75% 100% /* Cream */
+  );
+  transition: transform 4s ease-out;
+}
+
+.spin {
+  transform: rotate(1440deg); /* 4 full spins */
+}
+
+.logo-container {
+  margin-bottom: 20px;
+}
+
+/* Social buttons, on-brand */
+
+.social-buttons {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.social-button {
+  padding: 10px 20px;
+  font-size: 16px;
+  margin: 0 10px;
+  border-radius: 5px;
+  text-decoration: none;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease,
+    transform 0.08s ease;
+  box-shadow: 0px 2px 4px rgba(60, 38, 0, 0.6); /* Brown shadow */
+  color: #f9d580; /* Cream text */
+}
+
+/* GitHub-style button using Brown / Charcoal */
+.github {
+  background-color: #3c2600; /* Brown */
+}
+
+.github:hover {
+  background-color: #222222; /* Charcoal */
+  box-shadow: 0px 4px 8px rgba(60, 38, 0, 0.8);
+}
+
+/* “Twitter” button using Green */
+.twitter {
+  background-color: #30d630; /* Green */
+}
+
+.twitter:hover {
+  background-color: #001600; /* Dark Green */
+  box-shadow: 0px 4px 8px rgba(60, 38, 0, 0.8);
+}
+
+/* Supra Dev Hub button using Red */
+.supra-dev-hub {
+  background-color: #d5502c; /* Red */
+}
+
+.supra-dev-hub:hover {
+  background-color: #b43f20; /* Dark Red */
+  box-shadow: 0px 4px 8px rgba(60, 38, 0, 0.8);
+}
+
+.social-button:hover {
+  transform: translateY(-1px);
+}
+
+.spin-the-wheel-container {
+  margin-bottom: 30px;
+}
+
+.spin-button {
+  margin-top: 20px;
+}

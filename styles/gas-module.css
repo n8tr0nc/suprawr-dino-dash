@@ -1,0 +1,565 @@
+/* PAGE LAYOUT (replaces old Home.module.css usage) */
+
+.page-container {
+  min-height: 100vh;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  color: #30d630; /* body text = Green */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.page-main {
+  width: 100%;
+  max-width: 900px;
+  padding: 4rem 1.5rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+}
+
+.card-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* GAS TRACKER CARD */
+
+.gas-card {
+  background: #001600; /* Dark Green */
+  border-radius: 8px;
+  padding: 2rem;
+  max-width: 700px;
+  width: 100%;
+  box-shadow: 0 0 10px #111111;
+  border: 1px solid #30d630;
+  color: #30d630; /* Body text Green */
+  text-align: left;
+}
+
+.gas-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.gas-header-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.gas-logo img {
+  width: 42px;
+  height: 42px;
+}
+
+.gas-title {
+  font-family: /*"Oxanium", system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif*/ monospace;
+  font-size: 1.6rem;
+  font-weight: 800;
+  margin: 0;
+  color: #feeecd;
+  letter-spacing: 0.04em;
+}
+
+.gas-subtitle {
+  margin: 0.25rem 0 0;
+  font-size: 0.92rem;
+  opacity: 0.9;
+  color: #feeecd;
+}
+
+.gas-subtitle strong {
+  font-weight: 700;
+  color: #feeecd;
+}
+
+/* Not used in JSX anymore, but kept in palette in case it's reused */
+.disconnect-button {
+  padding: 0.4rem 0.9rem;
+  border-radius: 8px;
+  border: 1px solid #b43f20;
+  background: #b43f20;
+  color: #feeecd;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
+  white-space: nowrap;
+}
+
+.disconnect-button:hover:not(:disabled) {
+  background: #d5502c; /* Dark Red */
+  box-shadow: 0 0 8px rgba(213, 80, 44, 0.6);
+}
+
+.disconnect-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.field-block {
+  margin-top: 1.5rem;
+  margin-bottom: 1rem;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.field-label {
+  display: block;
+  font-size: 0.9rem;
+  margin-bottom: 0.4rem;
+  opacity: 0.9;
+  width: 100%;
+  padding: 0 0.4rem;
+  color: #30d630;
+}
+
+.field-input {
+  width: 100%;
+  padding: 0.75rem 0.9rem;
+  border-radius: 8px;
+  border: 1px solid #111111;
+  background: #222222;
+  color: #30d630;
+  font-family: monospace;
+  font-size: 0.95rem;
+}
+
+.field-input::placeholder {
+  color: #30d630;
+  opacity: 0.7;
+}
+
+.field-input:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Main Calculate button: gradient Red bottom → Gold top, text Cream */
+.primary-button {
+  width: 100%;
+  padding: 0.9rem 1rem;
+  background: #b43f20; /* Red */
+  border-radius: 8px;
+  font-family: monospace;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid #b43f20; /* Dark Red border */
+  color: #feeecd; /* Cream text */
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease,
+    transform 0.08s ease;
+}
+
+.primary-button:hover:not(:disabled) {
+  background: #d5502c; /* Dark Red */
+  box-shadow: 0 0 10px rgba(255, 147, 147, 0.7); /* Red glow */
+}
+
+.primary-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+  box-shadow: none;
+}
+
+.progress-wrapper {
+  margin-top: 1rem;
+}
+
+.progress-label {
+  font-size: 0.85rem;
+  margin-bottom: 0.3rem;
+  color: #30d630;
+  opacity: 0.9;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: #222222; /* Charcoal track */
+  border: 1px solid #30d630; /* Green border */
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background-image: linear-gradient(90deg, #30d630, #b39628); /* Green → Gold */
+  transition: width 0.18s ease-out;
+}
+
+.alert.error {
+  margin-top: 1rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 8px;
+  border: 1px solid #d5502c;
+  color: #d5502c;
+  font-size: 0.9rem;
+}
+
+.results {
+  margin-top: 1.25rem;
+  font-size: 0.85rem;
+  color: #30d630;
+}
+
+.result-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0.2rem 0;
+}
+
+.result-label {
+  opacity: 0.9;
+}
+
+.result-value {
+  font-weight: 600;
+  font-family: monospace;
+  text-align: right;
+  white-space: nowrap;
+  color: #30d630;
+}
+
+.note {
+  margin-top: 1.5rem;
+  font-size: 0.78rem;
+  opacity: 0.8;
+  color: #feeecd;
+}
+
+code {
+  font-family: monospace;
+  font-size: 0.78rem;
+  color: #feeecd;
+  font-weight: bold;
+}
+
+@media (max-width: 640px) {
+  .gas-card {
+    padding: 1.5rem;
+  }
+
+  .gas-title {
+    font-size: 1.4rem;
+  }
+}
+
+/* Corner SUPRAWR dino logo (top-left) */
+.corner-dino-logo {
+  position: fixed;
+  top: 24px;
+  left: 24px;
+  width: auto;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  z-index: 20;
+}
+
+.corner-dino-logo img {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+}
+
+.corner-dino-text {
+  font-family: "Oxanium", system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 1.4rem;
+  color: #b39628; /* Cream */
+}
+
+/* Gas icon inside the card */
+.gas-icon-circle {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gas-icon {
+  font-size: 2rem;
+  color: #b43f20; /* Dark Red */
+}
+
+/* Top-right bar: tier + balance + wallet button */
+.top-right-bar {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 30;
+  height: 64px;
+}
+
+.holder-tier-display {
+  font-family: "Oxanium", system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  font-weight: 600;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  text-align: right;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.get-suprawr-link {
+  font-family: "Oxanium", system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #f9d580; /* Cream / gold */
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.get-suprawr-link:hover {
+  color: #ffffff;
+  text-decoration: underline;
+}
+
+.holder-tier-title {
+  color: #d5502c; /* Red for tier name */
+}
+
+.holder-tier-separator {
+  color: #30d630; /* Green, matches balance */
+}
+
+.holder-tier-balance {
+  color: #30d630; /* Green for amount + token symbol */
+}
+
+/* Top-right connect/disconnect button */
+.top-right-wallet-button {
+  padding: 0.55rem 1.3rem;
+  background: #b43f20; /* Red */
+  border-radius: 8px;
+  font-family: monospace;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid #b43f20; /* Dark Red border */
+  color: #feeecd; /* Cream text */
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease,
+    transform 0.08s ease;
+}
+
+.top-right-wallet-button:hover:not(:disabled) {
+  background: #d5502c; /* Dark Red */
+  box-shadow: 0 0 10px rgba(255, 147, 147, 0.7); /* Red glow */
+}
+
+.top-right-wallet-button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.top-right-wallet-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+  box-shadow: none;
+}
+
+/* "Get $SUPRAWR" link in top-right bar */
+.get-suprawr-link {
+  font-family: "Oxanium", system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #30d630;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color 0.2s ease, text-shadow 0.2s ease;
+}
+
+.get-suprawr-link:hover {
+  color: #7ae97a;
+  text-decoration: none;
+  text-shadow: 0px 0px 4px #7ae97a;
+}
+
+/* Clickable tier title */
+.holder-tier-title-button {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font-family: "Oxanium", system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #b43f20; /* Red */
+  cursor: pointer;
+  text-decoration: none;
+  text-decoration-style: none;
+  box-shadow: none;
+  transition: color 0.2s ease, text-shadow 0.2s ease;
+}
+
+.holder-tier-title-button:hover {
+  color: #d5502c;
+  background-color: transparent;
+  box-shadow: none;
+  text-shadow: 0px 0px 4px #d5502c;
+}
+
+/* Tier modal */
+.tier-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.tier-modal {
+  background: #001600; /* Dark green to match card */
+  border-radius: 10px;
+  border: 1px solid #30d630;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 0 18px rgba(0, 0, 0, 0.8);
+  color: #feeecd;
+  font-family: monospace;
+  padding: 1.25rem 1.5rem;
+}
+
+.tier-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.tier-modal-title {
+  margin: 0;
+  font-size: 1.1rem;
+  letter-spacing: 0.04em;
+}
+
+.tier-modal-close {
+  background: transparent;
+  border: none;
+  color: #30d630;
+  font-size: 1.4rem;
+  cursor: pointer;
+  padding: 0 0.4rem;
+  transition: color 0.2s ease, text-shadow 0.2s ease;
+}
+
+.tier-modal-close:hover {
+  color: #7ae97a;
+  background-color: transparent;
+  text-shadow: 0 0 4px #7ae97a;
+  box-shadow: none;
+}
+
+.tier-modal-body {
+  font-size: 0.9rem;
+}
+
+.tier-current {
+  margin-bottom: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.tier-current-name {
+  color: #d5502c;
+  font-weight: 600;
+}
+
+.tier-current-balance {
+  color: #30d630;
+  font-weight: 600;
+}
+
+.tier-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tier-list-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.25rem 0.35rem;
+  font-size: 0.86rem;
+}
+
+.tier-list-item.current-tier {
+  background: #112311;
+  border-radius: 6px;
+}
+
+.tier-name {
+  color: #d5502c;
+  font-weight: 600;
+}
+
+.tier-range {
+  color: #30d630;
+  white-space: nowrap;
+}
+
+/* Bottom-left Social Bar */
+.social-bar {
+  position: fixed;
+  bottom: 24px;
+  left: 24px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 50;
+}
+
+.social-icon {
+  font-size: 1.8rem;
+  text-decoration: none;
+  color: #30d630;
+  transition: color 0.2s ease, text-shadow 0.2s ease;
+}
+
+.social-icon:hover {
+  color: #7ae97a;
+  text-shadow: 0 0 4px #7ae97a;
+}
+
+/* Specific icon styles */
+.icon-x {
+  font-weight: 900;
+  font-family: monospace;
+}
+
+.icon-telegram {
+  display: inline-block;
+  transform: rotate(8deg);
+}
