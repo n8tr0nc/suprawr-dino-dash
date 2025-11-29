@@ -395,7 +395,7 @@ export default function GasFeeStats() {
 
       if (!hasAccess) {
         setError(
-          'Access denied: this wallet must hold at least 1,000,000 $SUPRAWR to use this tool.'
+          'Access denied: this wallet must hold at least 1,000 $SUPRAWR to use this tool.'
         );
       } else {
         setError('');
@@ -644,7 +644,7 @@ export default function GasFeeStats() {
       : checkingAccess
       ? 'Checking Access…'
       : hasAccess === false
-      ? 'Access Denied (Need 1,000,000 $SUPRAWR)'
+      ? 'Access Denied (Need 1,000 $SUPRAWR)'
       : calculating
       ? 'Calculating…'
       : 'Calculate Total Fees';

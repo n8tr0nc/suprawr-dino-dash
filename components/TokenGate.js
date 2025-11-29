@@ -8,8 +8,8 @@ export const RPC_BASE_URL = 'https://rpc-mainnet.supra.com';
 export const SUPRAWR_TOKEN_ADDRESS =
   '0x82ed1f483b5fc4ad105cef5330e480136d58156c30dc70cd2b9c342981997cee';
 
-// 1,000,000 whole SUPRAWR
-export const REQUIRED_SUPRAWR_WHOLE = 1_000_000n;
+// 1,000 whole SUPRAWR
+export const REQUIRED_SUPRAWR_WHOLE = 1_000n;
 
 /**
  * Frontend helper:
@@ -127,7 +127,7 @@ export default function TokenGate({
       >
         ❌ Access denied.
         <br />
-        You need at least <strong>1,000,000 $SUPRAWR</strong> to use this tool.
+        You need at least <strong>1,000 $SUPRAWR</strong> to use this tool.
         <br />
         Detected balance: {balanceDisplay} $SUPRAWR
       </div>

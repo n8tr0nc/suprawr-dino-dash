@@ -4,8 +4,8 @@
 const SUPRAWR_TOKEN_ADDRESS =
   '0x82ed1f483b5fc4ad105cef5330e480136d58156c30dc70cd2b9c342981997cee';
 
-// Requirement: 1,000,000 SUPRAWR (display units)
-const REQUIRED_SUPRAWR_WHOLE = 1_000_000n;
+// Requirement: 1,000 SUPRAWR (display units)
+const REQUIRED_SUPRAWR_WHOLE = 1_000n;
 
 // Assumed decimals for Pump token display (can be adjusted if Atmos uses a different value)
 const SUPRAWR_DECIMALS = 6n;
@@ -133,7 +133,7 @@ export default async function handler(req, res) {
     // Convert to display string
     const balanceDisplay = formatRawBalance(rawBalance, SUPRAWR_DECIMALS);
 
-    // Requirement in base units (1,000,000 * 10^decimals)
+    // Requirement in base units (1,000 * 10^decimals)
     const requiredRaw =
       REQUIRED_SUPRAWR_WHOLE * 10n ** SUPRAWR_DECIMALS;
 
