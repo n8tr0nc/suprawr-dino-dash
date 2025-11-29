@@ -1,50 +1,64 @@
-## Overview 
-Sample dapp build on [Supra](supra.com) MoveVM Testnet with [Starkey Wallet](starkey.app). The dapp is a Spin the Wheel Game with a minimalist UI aiming to provide a guide template for building on Supra MoveVM and Integrate Starkey for Devs trying out first hand with Layer 1. This project showcases how to create a simple game where users can spin a wheel and get random results like "Win," "Lose," or "Try Again."
+# 🦖 SUPRAWR Dino Dash — Gas Tracker
 
-## Wokring 
+A lightweight Next.js dashboard that scans **$SUPRA coin transactions** for your connected Supra wallet and calculates:
 
-### Backend: Smart Contract on Supra MoveVM Testnet 
+* Total gas spent
+* Average gas per tx
+* Estimated monthly gas
+* Live USD conversion
+* $SUPRAWR holder rank (token-gated access)
 
-The backend of this project is built using the Move and deployed on the Supra MoveVM. The smart contract includes the `Move.toml` file and module called `SpinTheWheel`, which contains the following functions:
-- `initialize:` Initializes the Result resource with a default value.
-- `spin:` Generates a random result and updates the Result resource.
+---
 
-Deploy the Smart Contract on Supra MoveVM Testnet using the guide at: https://docs.supra.com/move/ 
+## 🚀 Features
 
-### Frontend UI 
-- **Wallet Connection:** Allows users to connect their Starkey wallet.
-- **Spin the Wheel Button**: Provides the game interface where users can spin the wheel.
-- **Wheel Animation:** Displays the spinning wheel animation using the Supra circular logo.
+* **StarKey Wallet Connect** (auto-restore)
+* **Full coin_transactions scan** via Supra RPC
+* **Real-time SUPRA → USD**
+* **Progress bar while scanning**
+* **Requires 1,000,000+ $SUPRAWR to access**
+* Shows rank: Hatchling → Primal Master
 
-### Role of Starkey Wallet 
-The Starkey wallet plays a crucial role in this project by providing the following functionalities:
+---
 
-- **Authentication:** Verifies the user’s identity and ensures authorized access.
-- **Transaction Signing:** Signs and sends transactions to Supra.
-- **Account Management:** Users can manage their accounts and view spin results.
+## 🛠️ Tech Stack
 
-## Getting Started
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/pages/api-reference/create-next-app).
+* Next.js
+* React
+* Axios
+* Supra RPC v2
 
-- Install Dependencies:
-```
-npm install
-```
+---
 
-- Start the Development Server::
+## 📦 Setup
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run build
+npm start
 ```
 
-- Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-- Connecting Starkey Wallet: 
-Open the Application and Click the "Connect Wallet" button following the instructions to connect your Starkey wallet.
- 
+## 🌐 Deployment
+
+Works on:
+
+* **Vercel** (best)
+* Netlify
+* GitHub Pages (with static export)
+
+---
+
+## ⚠️ Notes
+
+* Uses **coin_transactions** only
+* Contract-only txs may not appear
+* Gas is estimated using `max_gas_amount × gas_unit_price`
+
+---
+
+## 💬 Feedback
+
+Open an issue for bugs or feature requests. RAWRpack evolves fast — so will this dashboard.
