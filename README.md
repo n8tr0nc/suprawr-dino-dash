@@ -1,4 +1,4 @@
-# 🦖 SUPRAWR Dino Dash — Gas Tracker
+# 🦖 Suprawr Dino Dash — Gas Tracker
 
 A lightweight Next.js dashboard that scans **$SUPRA coin transactions** for your connected Supra wallet and calculates:
 
