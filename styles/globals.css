@@ -46,33 +46,6 @@ p {
   font-size: 1.5rem;
 }
 
-/* Spin-the-wheel styles (rethemed to SUPRAWR palette) */
-
-.wheel-container {
-  position: relative;
-  width: 200px;
-  height: 200px;
-  margin: 20px auto;
-}
-
-.wheel {
-  width: 100%;
-  height: 100%;
-  border: 10px solid #3c2600; /* Brown */
-  border-radius: 50%;
-  background: conic-gradient(
-    #d5502c 0% 25%,
-    /* Red */ #b39628 25% 50%,
-    /* Gold */ #30d630 50% 75%,
-    /* Green */ #f9d580 75% 100% /* Cream */
-  );
-  transition: transform 4s ease-out;
-}
-
-.spin {
-  transform: rotate(1440deg); /* 4 full spins */
-}
-
 .logo-container {
   margin-bottom: 20px;
 }
@@ -127,14 +100,10 @@ p {
   box-shadow: 0px 4px 8px rgba(60, 38, 0, 0.8);
 }
 
-.social-button:hover {
-  transform: translateY(-1px);
-}
-
-.spin-the-wheel-container {
-  margin-bottom: 30px;
-}
-
-.spin-button {
-  margin-top: 20px;
+.global-note {
+  margin: 1.25rem auto 1.75rem;
+  max-width: 640px;
+  text-align: center;
+  font-size: 0.9rem;
+  opacity: 0.8;
 }
