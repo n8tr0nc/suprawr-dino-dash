@@ -20,7 +20,7 @@ const roboto = Roboto({
 });
 
 export const metadata = {
-  title: "Suprawr Gas Tracker",
+  title: "Suprawr - Supra Blockchain Tools",
   description:
     "Track your Supra coin ($SUPRA) gas fees and lifetime activity with the Suprawr Gas Tracker.",
 };

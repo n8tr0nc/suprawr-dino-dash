@@ -6,11 +6,13 @@
   min-height: 100vh;
   width: 100%;
   display: flex;
-  background: #111111;
+  background: radial-gradient(
+    circle at top,
+    #071b0f 0,
+    #020705 50%,
+    #010302 100%
+  );
   color: #f9d580;
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-content: stretch;
 }
 
 /* SIDEBAR */
@@ -18,21 +20,48 @@
 .dashboard-sidebar {
   width: 260px;
   max-width: 260px;
-  background: #222222;
-  padding: 20px;
+  background: linear-gradient(180deg, #050f08 0%, #020504 100%);
+  border-right: 1px solid #0e2713;
+  padding: 24px 20px 18px;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+}
+
+/* Top section (brand + modules) */
+.sidebar-top {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Social icons section (bottom) */
+.sidebar-social {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  margin-top: auto;
+  margin-bottom: 6px;
+}
+
+/* Version footer (bottom, below icons) */
+.sidebar-version {
+  font-size: 0.72rem;
+  color: #8fa18b;
+  opacity: 0.9;
+  line-height: 1.3;
+  padding-bottom: 4px;
 }
 
 .sidebar-brand {
   display: flex;
   gap: 10px;
-  margin-bottom: 32px;
+  margin-bottom: 15px;
   flex-direction: row;
   flex-wrap: wrap;
   align-content: center;
   align-items: center;
+  justify-content: center;
 }
 
 .sidebar-brand-logo {
@@ -44,19 +73,24 @@
 .sidebar-brand-title {
   font-family: "Oxanium", system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;
-  font-size: 1.05rem;
+  font-size: 1.4rem;
   letter-spacing: 0;
   text-transform: uppercase;
   color: #f9d580;
-  width: 55%;
+  margin-bottom: -4px;
 }
 
 .sidebar-brand-tagline {
-  font-size: 0.72rem;
-  color: #30d630;
-  opacity: 0.85;
+  font-size: 0.8rem;
+  font-weight: bold;
+  color: #feeecd;
   margin-top: 2px;
   width: 100%;
+  padding: 4px;
+  margin: 0 -20px;
+  width: 200%;
+  background-color: #111111;
+  text-align: center;
 }
 
 .sidebar-section {
@@ -64,12 +98,11 @@
 }
 
 .sidebar-section-label {
-  font-size: 0.72rem;
-  letter-spacing: 0.18em;
+  font-size: 1rem;
+  letter-spacing: 0;
   text-transform: uppercase;
-  color: #30d630;
-  opacity: 0.85;
-  margin-bottom: 8px;
+  color: #c3ffc3;
+  margin-bottom: 15px;
 }
 
 .sidebar-modules-list {
@@ -78,30 +111,33 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .sidebar-module {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 7px 10px;
-  border-radius: 7px;
+  padding: 8px 8px;
+  border-radius: 2px;
   background: transparent;
-  color: #f9d580;
-  font-size: 0.82rem;
+  color: #7ae97a;
+  font-size: 1rem;
   cursor: default;
-  opacity: 0.9;
+  transition: background 0.2s ease, color 0.1s ease, text-shadow 0.2s ease,
+    transform 0.08s ease;
+  cursor: pointer;
+  font-weight: 500;
 }
 
 .sidebar-module-active {
   background: rgba(0, 22, 0, 0.8);
-  border: 1px solid #30d630;
-  box-shadow: 0 0 10px rgba(48, 214, 48, 0.25);
+  border: 1px solid #7ae97a;
+  box-shadow: 0 0 8px #7ae97a;
 }
 
-.sidebar-module-label {
-  font-weight: 500;
+.sidebar-module:hover {
+  text-shadow: 0 0 8px #7ae97a;
 }
 
 .sidebar-module-badge {
@@ -119,20 +155,16 @@
   color: #888888;
 }
 
-.sidebar-footer {
-  margin-top: 24px;
-  font-size: 0.7rem;
-  color: #666666;
-}
-
 /* MAIN DASHBOARD AREA */
 
 .dashboard-main {
   flex: 1;
-  padding: 20px;
+  padding: 20px 20px 20px 20px;
   display: flex;
   flex-direction: column;
   gap: 24px;
+  width: 100%;
+  max-width: 100%;
 }
 
 .dashboard-header {
@@ -146,39 +178,57 @@
   font-family: "Oxanium", system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;
   font-size: 1.8rem;
-  letter-spacing: 0.18em;
+  letter-spacing: 0;
   text-transform: uppercase;
-  color: #f9d580;
+  color: #c3ffc3;
 }
 
 .dashboard-subtitle {
   margin: 6px 0 0;
   font-size: 0.88rem;
-  color: #d6e3c7;
+  color: #feeecd;
 }
 
 /* GRID: MAIN + SIDE PANELS */
 
 .dashboard-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 2.1fr) minmax(0, 1.4fr);
-  gap: 24px;
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  gap: 20px;
   align-items: flex-start;
+  flex-wrap: wrap;
 }
 
-.dashboard-main-column,
+.dashboard-main-column {
+  min-width: 0;
+  width: 55%;
+  flex-grow: 1;
+}
+
 .dashboard-side-column {
   min-width: 0;
+  width: 40%;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 20px;
+}
+
+.dashboard-side-column .dashboard-panel {
+  width: 100%;
 }
 
 /* PANELS */
 
 .dashboard-panel {
   background: rgba(0, 16, 0, 0.86);
-  border-radius: 10px;
+  border-radius: 2px;
   border: 1px solid #113516;
   box-shadow: 0 0 14px rgba(0, 0, 0, 0.7);
-  padding: 14px 16px 16px;
+  padding: 1.4rem;
 }
 
 .dashboard-panel-header {
@@ -191,7 +241,7 @@
 
 .dashboard-panel-title {
   font-size: 0.84rem;
-  letter-spacing: 0.2em;
+  letter-spacing: 0;
   text-transform: uppercase;
   color: #f9d580;
 }
@@ -199,7 +249,7 @@
 .dashboard-panel-pill {
   font-size: 0.7rem;
   padding: 3px 10px;
-  border-radius: 999px;
+  border-radius: 2px;
   border: 1px solid #30d630;
   color: #30d630;
   white-space: nowrap;
@@ -211,7 +261,10 @@
 }
 
 .dashboard-panel-body {
-  padding-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 0;
 }
 
 .dashboard-panel-placeholder {
@@ -220,27 +273,16 @@
   opacity: 0.9;
 }
 
-/* FOOTER */
-
-.dashboard-footer {
-  margin-top: 12px;
-  font-size: 0.72rem;
-  color: #8fa18b;
-}
-
-.dashboard-version {
-  opacity: 0.9;
-}
-
 /* Responsive tweaks */
 
 @media (max-width: 1200px) {
-  .dashboard-grid {
-    grid-template-columns: minmax(0, 1.7fr) minmax(0, 1.3fr);
+  .dashboard-main-column,
+  .dashboard-side-column {
+    width: 100%;
   }
 }
 
-@media (max-width: 980px) {
+@media (max-width: 1024px) {
   .dashboard-shell {
     flex-direction: column;
   }
@@ -250,71 +292,155 @@
     max-width: 100%;
     border-right: none;
     border-bottom: 1px solid #0e2713;
-    flex-direction: row;
-    align-items: flex-start;
-    justify-content: space-between;
+    flex-direction: column;
   }
 
   .dashboard-main {
-    padding: 20px;
+    padding: 20px 20px 20px 20px;
   }
 
   .dashboard-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .dashboard-main-column,
   .dashboard-side-column {
-    margin-top: 12px;
+    width: 100%;
   }
 }
 
 /* =========================
-   EXISTING GAS TRACKER STYLES
-   (unchanged)
+   GAS TRACKER CARD + FIELDS
    ========================= */
 
-/* PAGE LAYOUT (replaces old Home.module.css usage) */
-
-.page-container {
-  min-height: 100vh;
-  padding: 0;
-  margin: 0;
-  background: transparent;
-  color: #30d630; /* body text = Green */
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.page-main {
-  width: 100%;
-  max-width: 900px;
-  padding: 4rem 1.5rem;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  flex-direction: column;
-}
-
-.card-wrapper {
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-/* GAS TRACKER CARD */
-
 .gas-card {
-  background: #001600; /* Dark Green */
-  border-radius: 8px;
-  padding: 2rem;
-  max-width: 700px;
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  max-width: 100%;
   width: 100%;
-  box-shadow: 0 0 10px #111111;
-  border: 1px solid #30d630;
-  color: #30d630; /* Body text Green */
+  box-shadow: none;
+  border: none;
+  color: #30d630;
   text-align: left;
+}
+
+/* Info button in GAS card header */
+.gas-info-button {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid #7ae97a;
+  background: transparent;
+  color: #7ae97a;
+  font-family: monospace;
+  font-size: 0.95rem;
+  font-weight: 700;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: none;
+  transition: background 0.2s ease, color 0.1s ease, box-shadow 0.2s ease,
+    transform 0.08s ease;
+}
+
+.gas-info-button:hover:not(:disabled) {
+  background: #7ae97a;
+  color: #111111;
+  box-shadow: 0 0 8px #7ae97a;
+}
+
+.gas-info-button:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+/* =========================
+   SHARED MODAL-001 (tier + gas)
+   ========================= */
+
+.modal-001-overlay,
+.tier-modal-overlay,
+.gas-info-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.modal-001,
+.tier-modal,
+.gas-info-modal {
+  background: #001600;
+  border-radius: 2px;
+  border: 1px solid #30d630;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 0 18px rgba(0, 0, 0, 0.8);
+  color: #feeecd;
+  font-family: monospace;
+  padding: 1.25rem 1.5rem;
+}
+
+.modal-001-header,
+.tier-modal-header,
+.gas-info-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.modal-001-title,
+.tier-modal-title,
+.gas-info-title {
+  margin: 0;
+  font-size: 1.1rem;
+  letter-spacing: 0;
+}
+
+.modal-001-close,
+.tier-modal-close,
+.gas-info-close {
+  background: transparent;
+  border: none;
+  color: #30d630;
+  font-size: 1.4rem;
+  cursor: pointer;
+  padding: 0 0.4rem;
+  transition: color 0.2s ease, text-shadow 0.2s ease;
+}
+
+.modal-001-close:hover,
+.tier-modal-close:hover,
+.gas-info-close:hover {
+  color: #7ae97a;
+  background-color: transparent;
+  text-shadow: 0 0 4px #7ae97a;
+  box-shadow: none;
+}
+
+.modal-001-body,
+.tier-modal-body,
+.gas-info-body {
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+/* EXTRA: code inside modal smaller */
+.modal-001-body code,
+.gas-info-body code {
+  font-size: 0.8rem;
+}
+
+.gas-icon {
+  padding-right: 8px;
 }
 
 .gas-header {
@@ -337,8 +463,7 @@
 }
 
 .gas-title {
-  font-family: /*"Oxanium", system-ui, -apple-system, BlinkMacSystemFont,
-    "Segoe UI", sans-serif*/ monospace;
+  font-family: monospace;
   font-size: 1.6rem;
   font-weight: 800;
   margin: 0;
@@ -356,30 +481,6 @@
 .gas-subtitle strong {
   font-weight: 700;
   color: #feeecd;
-}
-
-/* Not used in JSX anymore, but kept in palette in case it's reused */
-.disconnect-button {
-  padding: 0.4rem 0.9rem;
-  border-radius: 8px;
-  border: 1px solid #b43f20;
-  background: #b43f20;
-  color: #feeecd;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
-  white-space: nowrap;
-}
-
-.disconnect-button:hover:not(:disabled) {
-  background: #d5502c; /* Dark Red */
-  box-shadow: 0 0 8px rgba(213, 80, 44, 0.6);
-}
-
-.disconnect-button:disabled {
-  opacity: 0.6;
-  cursor: default;
 }
 
 .field-block {
@@ -403,7 +504,7 @@
 .field-input {
   width: 100%;
   padding: 0.75rem 0.9rem;
-  border-radius: 8px;
+  border-radius: 2px;
   border: 1px solid #111111;
   background: #222222;
   color: #30d630;
@@ -421,25 +522,25 @@
   cursor: not-allowed;
 }
 
-/* Main Calculate button: gradient Red bottom → Gold top, text Cream */
+/* Main Calculate button */
 .primary-button {
   width: 100%;
   padding: 0.9rem 1rem;
-  background: #b43f20; /* Red */
-  border-radius: 8px;
+  background: #b43f20;
+  border-radius: 2px;
   font-family: monospace;
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
-  border: 1px solid #b43f20; /* Dark Red border */
-  color: #feeecd; /* Cream text */
-  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease,
+  border: 1px solid #b43f20;
+  color: #feeecd;
+  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease,
     transform 0.08s ease;
 }
 
 .primary-button:hover:not(:disabled) {
-  background: #d5502c; /* Dark Red */
-  box-shadow: 0 0 10px rgba(255, 147, 147, 0.7); /* Red glow */
+  background: #d5502c;
+  box-shadow: 0 0 10px rgba(255, 147, 147, 0.7);
 }
 
 .primary-button:disabled {
@@ -463,21 +564,21 @@
   width: 100%;
   height: 8px;
   border-radius: 999px;
-  background: #222222; /* Charcoal track */
-  border: 1px solid #30d630; /* Green border */
+  background: #222222;
+  border: 1px solid #30d630;
   overflow: hidden;
 }
 
 .progress-bar-fill {
   height: 100%;
-  background-image: linear-gradient(90deg, #30d630, #b39628); /* Green → Gold */
+  background-image: linear-gradient(90deg, #30d630, #b39628);
   transition: width 0.18s ease-out;
 }
 
 .alert.error {
   margin-top: 1rem;
   padding: 0.75rem 0.9rem;
-  border-radius: 8px;
+  border-radius: 2px;
   border: 1px solid #d5502c;
   color: #d5502c;
   font-size: 0.9rem;
@@ -533,7 +634,10 @@ code {
   }
 }
 
-/* Top-right bar: tier + balance + wallet button */
+/* =========================
+   TOP-RIGHT BAR + TIERS
+   ========================= */
+
 .top-right-bar {
   display: flex;
   gap: 12px;
@@ -560,48 +664,41 @@ code {
     "Segoe UI", sans-serif;
   font-weight: 600;
   font-size: 0.9rem;
-  color: #30d630;
+  color: #7ae97a;
   text-decoration: none;
   white-space: nowrap;
-  transition: color 0.2s ease, text-shadow 0.2s ease;
+  transition: background 0.2s ease, color 0.2s ease, text-shadow 0.2s ease,
+    transform 0.08s ease;
 }
 
 .get-suprawr-link:hover {
   color: #7ae97a;
   text-decoration: none;
-  text-shadow: 0px 0px 4px #7ae97a;
-}
-
-.holder-tier-title {
-  color: #d5502c; /* Red for tier name */
-}
-
-.holder-tier-separator {
-  color: #30d630; /* Green, matches balance */
+  text-shadow: 0px 0px 8px #7ae97a;
 }
 
 .holder-tier-balance {
-  color: #30d630; /* Green for amount + token symbol */
+  color: #30d630;
 }
 
 /* Top-right connect/disconnect button */
 .top-right-wallet-button {
   padding: 0.55rem 1.3rem;
-  background: #b43f20; /* Red */
-  border-radius: 8px;
+  background: #b43f20;
+  border-radius: 2px;
   font-family: monospace;
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
-  border: 1px solid #b43f20; /* Dark Red border */
-  color: #feeecd; /* Cream text */
-  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease,
+  border: 1px solid #b43f20;
+  color: #feeecd;
+  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease,
     transform 0.08s ease;
 }
 
 .top-right-wallet-button:hover:not(:disabled) {
-  background: #d5502c; /* Dark Red */
-  box-shadow: 0 0 10px rgba(255, 147, 147, 0.7); /* Red glow */
+  background: #d5502c;
+  box-shadow: 0 0 10px rgba(255, 147, 147, 0.7);
 }
 
 .top-right-wallet-button:active:not(:disabled) {
@@ -624,10 +721,8 @@ code {
     "Segoe UI", sans-serif;
   font-weight: 600;
   font-size: 0.9rem;
-  color: #b43f20; /* Red */
+  color: #b43f20;
   cursor: pointer;
-  text-decoration: none;
-  text-decoration-style: none;
   box-shadow: none;
   transition: color 0.2s ease, text-shadow 0.2s ease;
 }
@@ -639,64 +734,7 @@ code {
   text-shadow: 0px 0px 4px #d5502c;
 }
 
-/* Tier modal */
-.tier-modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.75);
-  z-index: 40;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1.5rem;
-}
-
-.tier-modal {
-  background: #001600; /* Dark green to match card */
-  border-radius: 10px;
-  border: 1px solid #30d630;
-  max-width: 420px;
-  width: 100%;
-  box-shadow: 0 0 18px rgba(0, 0, 0, 0.8);
-  color: #feeecd;
-  font-family: monospace;
-  padding: 1.25rem 1.5rem;
-}
-
-.tier-modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-bottom: 0.75rem;
-}
-
-.tier-modal-title {
-  margin: 0;
-  font-size: 1.1rem;
-  letter-spacing: 0.04em;
-}
-
-.tier-modal-close {
-  background: transparent;
-  border: none;
-  color: #30d630;
-  font-size: 1.4rem;
-  cursor: pointer;
-  padding: 0 0.4rem;
-  transition: color 0.2s ease, text-shadow 0.2s ease;
-}
-
-.tier-modal-close:hover {
-  color: #7ae97a;
-  background-color: transparent;
-  text-shadow: 0 0 4px #7ae97a;
-  box-shadow: none;
-}
-
-.tier-modal-body {
-  font-size: 0.9rem;
-}
+/* Tier modal content (shares modal-001 shell) */
 
 .tier-current {
   margin-bottom: 0.75rem;
@@ -729,8 +767,8 @@ code {
 }
 
 .tier-list-item.current-tier {
-  background: #112311;
-  border-radius: 6px;
+  background: #b43f20;
+  border-radius: 2px;
 }
 
 .tier-name {
@@ -743,36 +781,19 @@ code {
   white-space: nowrap;
 }
 
-/* Bottom-left Social Bar */
-.social-bar {
-  position: fixed;
-  bottom: 24px;
-  left: 24px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  z-index: 50;
-}
+/* =========================
+   SOCIAL ICONS (shared)
+   ========================= */
 
 .social-icon {
   font-size: 1.8rem;
   text-decoration: none;
-  color: #30d630;
-  transition: color 0.2s ease, text-shadow 0.2s ease;
+  color: #7ae97a;
+  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease,
+    transform 0.08s ease;
 }
 
 .social-icon:hover {
   color: #7ae97a;
-  text-shadow: 0 0 4px #7ae97a;
-}
-
-/* Specific icon styles */
-.icon-x {
-  font-weight: 900;
-  font-family: monospace;
-}
-
-.icon-telegram {
-  display: inline-block;
-  transform: rotate(8deg);
+  text-shadow: 0 0 8px #7ae97a;
 }

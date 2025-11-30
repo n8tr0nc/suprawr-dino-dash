@@ -3,7 +3,10 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { RPC_BASE_URL, fetchSupraWrAccess } from "./TokenGate";
 
-// --- utilities copied from GasFeeStats ---
+/* ------------------------------------------------------------------
+   PROVIDER + NORMALIZATION UTILITIES (shared with GasFeeStats)
+------------------------------------------------------------------ */
+
 function detectRawProvider() {
   if (typeof window === "undefined") return null;
   const w = window;
@@ -19,6 +22,7 @@ function detectRawProvider() {
 function normalizeAddress(acc) {
   if (!acc) return null;
   if (typeof acc === "string") return acc;
+
   return (
     acc.address ||
     acc.supraAddress ||
@@ -84,10 +88,26 @@ async function disconnectWallet(provider) {
     } else if (typeof provider.disconnectWallet === "function") {
       await provider.disconnectWallet();
     }
-  } catch { }
+  } catch {}
 }
 
-// Rank calculation
+/* ------------------------------------------------------------------
+   WALLET SYNC BROADCAST EVENT
+------------------------------------------------------------------ */
+
+function broadcastWalletState(address, connected) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("suprawr:walletChange", {
+      detail: { address, connected },
+    })
+  );
+}
+
+/* ------------------------------------------------------------------
+   RANK + BALANCE HELPERS
+------------------------------------------------------------------ */
+
 function computeHolderRankFromDisplay(balanceDisplay) {
   if (!balanceDisplay) return null;
 
@@ -96,27 +116,31 @@ function computeHolderRankFromDisplay(balanceDisplay) {
     .replace(/,/g, "");
 
   let whole = 0n;
-  try { whole = BigInt(cleanedInt || "0"); } catch { return null; }
+  try {
+    whole = BigInt(cleanedInt || "0");
+  } catch {
+    return null;
+  }
 
   if (whole >= 10_000_000n) return "Primal Master";
   if (whole >= 1_000_000n) return "Primal Titan";
-  if (whole >= 100_000n)   return "Primal Guardian";
-  if (whole >= 1_000n)     return "Scaleborn";
-  if (whole > 0n)          return "Hatchling";
+  if (whole >= 100_000n) return "Primal Guardian";
+  if (whole >= 1_000n) return "Scaleborn";
+  if (whole > 0n) return "Hatchling";
   return null;
 }
 
-// compact balance
 function formatCompactBalance(raw) {
   const num = Number(raw);
   if (isNaN(num)) return raw;
   if (num < 1000) return num.toString();
-  if (num < 1_000_000) return `${(num/1000).toFixed(1)}K`;
-  return `${(num/1_000_000).toFixed(2)}M`;
+  if (num < 1_000_000) return `${(num / 1000).toFixed(1)}K`;
+  return `${(num / 1_000_000).toFixed(2)}M`;
 }
 
-
-// ---------------- TOP-RIGHT BAR COMPONENT ----------------
+/* ------------------------------------------------------------------
+   TOP RIGHT BAR COMPONENT
+------------------------------------------------------------------ */
 
 export default function TopRightBar() {
   const [provider, setProvider] = useState(null);
@@ -131,10 +155,13 @@ export default function TopRightBar() {
 
   const [showRankModal, setShowRankModal] = useState(false);
 
-  // --- access check ---
+  /* ------------------------------------------------------------------
+     ACCESS CHECKER
+  ------------------------------------------------------------------ */
+
   const runAccessCheck = useCallback(async (addr) => {
     if (!addr) {
-      setHasAccess(false);
+      setHasAccess(null);
       setSupraWrBalanceDisplay(null);
       setHolderRank(null);
       return false;
@@ -151,13 +178,17 @@ export default function TopRightBar() {
     }
   }, []);
 
-  // --- auto detect wallet ---
+  /* ------------------------------------------------------------------
+     AUTO-DETECT WALLET ON LOAD
+  ------------------------------------------------------------------ */
+
   useEffect(() => {
     let cancelled = false;
-
     const startTime = Date.now();
+
     const id = setInterval(async () => {
       if (cancelled) return;
+
       const raw = detectRawProvider();
       if (raw) {
         clearInterval(id);
@@ -171,6 +202,9 @@ export default function TopRightBar() {
             setConnected(true);
             setAddress(addr);
             await runAccessCheck(addr);
+
+            // Sync with rest of UI
+            broadcastWalletState(addr, true);
           }
         } catch {}
         return;
@@ -182,18 +216,56 @@ export default function TopRightBar() {
       }
     }, 500);
 
-    return () => { cancelled = true; clearInterval(id); };
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
   }, [runAccessCheck]);
 
-  // --- wallet button handlers ---
+  /* ------------------------------------------------------------------
+     LISTEN FOR GLOBAL WALLET SYNC EVENTS
+  ------------------------------------------------------------------ */
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    function handleWalletChange(event) {
+      const { address: addr, connected: isConnected } = event.detail || {};
+
+      setConnected(!!isConnected);
+      setAddress(addr || "");
+
+      if (addr && isConnected) {
+        runAccessCheck(addr);
+      } else {
+        setHasAccess(null);
+        setSupraWrBalanceDisplay(null);
+        setHolderRank(null);
+      }
+    }
+
+    window.addEventListener("suprawr:walletChange", handleWalletChange);
+    return () => {
+      window.removeEventListener("suprawr:walletChange", handleWalletChange);
+    };
+  }, [runAccessCheck]);
+
+  /* ------------------------------------------------------------------
+     CONNECT / DISCONNECT BUTTON HANDLER
+  ------------------------------------------------------------------ */
+
   const handleWalletButtonClick = async () => {
     if (!provider) {
       setWalletInstalled(false);
       return;
     }
 
+    // DISCONNECT
     if (connected) {
       await disconnectWallet(provider);
+
+      broadcastWalletState("", false);
+
       setConnected(false);
       setAddress("");
       setHasAccess(null);
@@ -202,6 +274,7 @@ export default function TopRightBar() {
       return;
     }
 
+    // CONNECT
     try {
       const accounts = await connectAndGetAccounts(provider);
       if (accounts.length === 0) return;
@@ -210,8 +283,15 @@ export default function TopRightBar() {
       setAddress(addr);
       setConnected(true);
       await runAccessCheck(addr);
+
+      // Sync to GasFeeStats + entire app
+      broadcastWalletState(addr, true);
     } catch {}
   };
+
+  /* ------------------------------------------------------------------
+     BUTTON STATE
+  ------------------------------------------------------------------ */
 
   const walletButtonLabel =
     walletInstalled === false && !provider
@@ -223,12 +303,15 @@ export default function TopRightBar() {
   const isWalletButtonDisabled =
     (walletInstalled === false && !provider) || checkingAccess;
 
+  /* ------------------------------------------------------------------
+     RENDER
+  ------------------------------------------------------------------ */
 
-  // ------------------- RENDER -------------------
   return (
     <>
       <div className="top-right-bar">
-        {/* GET SUPRAWR */}
+
+        {/* Link to Buy SUPRAWR */}
         <a
           href="https://app.atmos.ag/en/token-studio/0x82ed1f483b5fc4ad105cef5330e480136d58156c30dc70cd2b9c342981997cee"
           target="_blank"
@@ -238,7 +321,7 @@ export default function TopRightBar() {
           Get $SUPRAWR
         </a>
 
-        {/* Rank + balance */}
+        {/* Rank + Balance */}
         {connected && supraWrBalanceDisplay && (
           <div className="holder-tier-display">
             {holderRank && (
@@ -255,7 +338,7 @@ export default function TopRightBar() {
           </div>
         )}
 
-        {/* Wallet */}
+        {/* Connect / Disconnect */}
         <button
           className="top-right-wallet-button"
           onClick={handleWalletButtonClick}
@@ -268,32 +351,58 @@ export default function TopRightBar() {
 
       {/* RANK MODAL */}
       {showRankModal && (
-        <div className="tier-modal-overlay" onClick={() => setShowRankModal(false)}>
-          <div className="tier-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="tier-modal-header">
-              <h3 className="tier-modal-title">$SUPRAWR Holder Ranks</h3>
-              <button className="tier-modal-close" onClick={() => setShowRankModal(false)}>
+        <div
+          className="modal-001-overlay tier-modal-overlay"
+          onClick={() => setShowRankModal(false)}
+        >
+          <div
+            className="modal-001 tier-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-001-header tier-modal-header">
+              <h3 className="modal-001-title tier-modal-title">
+                $SUPRAWR Holder Ranks
+              </h3>
+              <button
+                className="modal-001-close tier-modal-close"
+                onClick={() => setShowRankModal(false)}
+              >
                 ×
               </button>
             </div>
 
-            <div className="tier-modal-body">
+            <div className="modal-001-body tier-modal-body">
               {holderRank && (
                 <div className="tier-current">
                   Your rank{" "}
                   <span className="tier-current-name">{holderRank}</span>{" "}
                   <span className="tier-current-balance">
-                    ({formatCompactBalance(parseFloat(supraWrBalanceDisplay))} $SUPRAWR)
+                    ({formatCompactBalance(parseFloat(supraWrBalanceDisplay))}{" "}
+                    $SUPRAWR)
                   </span>
                 </div>
               )}
 
               <ul className="tier-list">
-                <li className="tier-list-item">Hatchling <span className="tier-range">1 – 999</span></li>
-                <li className="tier-list-item">Scaleborn <span className="tier-range">1k – 99k</span></li>
-                <li className="tier-list-item">Primal Guardian <span className="tier-range">100k – 999k</span></li>
-                <li className="tier-list-item">Primal Titan <span className="tier-range">1M – 9.9M</span></li>
-                <li className="tier-list-item">Primal Master <span className="tier-range">10M+</span></li>
+                <li className={`tier-list-item ${holderRank === "Hatchling" ? "current-tier" : ""}`}>
+                  Hatchling <span className="tier-range">1 – 999</span>
+                </li>
+
+                <li className={`tier-list-item ${holderRank === "Scaleborn" ? "current-tier" : ""}`}>
+                  Scaleborn <span className="tier-range">1k – 99k</span>
+                </li>
+
+                <li className={`tier-list-item ${holderRank === "Primal Guardian" ? "current-tier" : ""}`}>
+                  Primal Guardian <span className="tier-range">100k – 999k</span>
+                </li>
+
+                <li className={`tier-list-item ${holderRank === "Primal Titan" ? "current-tier" : ""}`}>
+                  Primal Titan <span className="tier-range">1M – 9.9M</span>
+                </li>
+
+                <li className={`tier-list-item ${holderRank === "Primal Master" ? "current-tier" : ""}`}>
+                  Primal Master <span className="tier-range">10M+</span>
+                </li>
               </ul>
             </div>
           </div>

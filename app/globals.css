@@ -21,11 +21,11 @@ button {
   cursor: pointer;
   transition: background-color 0.3s ease, box-shadow 0.3s ease,
     transform 0.08s ease;
-  box-shadow: 0px 2px 4px #111111; /* Brown shadow */
+  box-shadow: 0px 2px 4px #111111;
 }
 
 button:hover {
-  background-color: #b43f20; /* Dark Red */
+  background-color: #b43f20;
   box-shadow: 0px 4px 8px rgba(60, 38, 0, 0.8);
 }
 
