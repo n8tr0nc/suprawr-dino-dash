@@ -1,26 +1,9 @@
-// pages/index.js
-import Head from 'next/head';
-import GasFeeStats from '../components/GasFeeStats';
+// app/page.jsx
+import GasFeeStats from "./components/GasFeeStats";
 
-export default function Home() {
+export default function Page() {
   return (
     <div className="page-container">
-      <Head>
-        <title>Suprawr Gas Tracker</title>
-
-        {/* Google Fonts: Oxanium (titles) + Roboto (body) */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link
-          rel="preconnect"
-          href="https://fonts.gstatic.com"
-          crossOrigin="anonymous"
-        />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Oxanium:wght@600;700;800&family=Roboto:wght@400;500;700&display=swap"
-          rel="stylesheet"
-        />
-      </Head>
-
       <main className="page-main">
         {/* Top-left SUPRAWR logo */}
         <div className="corner-dino-logo">
@@ -51,7 +34,7 @@ export default function Home() {
             <svg
               stroke="currentColor"
               fill="currentColor"
-              stroke-width="0"
+              strokeWidth="0"
               viewBox="0 0 24 24"
               height="20"
               width="20"
@@ -72,7 +55,7 @@ export default function Home() {
             <svg
               stroke="currentColor"
               fill="currentColor"
-              stroke-width="0"
+              strokeWidth="0"
               viewBox="0 0 256 256"
               height="20"
               width="20"
@@ -97,7 +80,7 @@ export default function Home() {
               viewBox="0 0 24 24"
               fill="currentColor"
             >
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm7.93 9H17c-.22-2.06-1-3.92-2.15-5.39A8.03 8.03 0 0 1 19.93 11zM12 4c1.62 0 3.2.56 4.47 1.6C15.09 7.26 14.22 9.5 14 12h-4c-.22-2.5-1.09-4.74-2.47-6.4A7.96 7.96 0 0 1 12 4zM4.07 13H7c.22 2.06 1 3.92 2.15 5.39A8.03 8.03 0 0 1 4.07 13zM12 20a7.96 7.96 0 0 1-4.47-1.6C8.91 16.74 9.78 14.5 10 12h4c.22 2.5 1.09 4.74 2.47 6.4A7.96 7.96 0 0 1 12 20zm4.85-1.61C17 16.92 17.78 15.06 18 13h2.93a8.03 8.03 0 0 1-4.08 5.39z"/>
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm7.93 9H17c-.22-2.06-1-3.92-2.15-5.39A8.03 8.03 0 0 1 19.93 11zM12 4c1.62 0 3.2.56 4.47 1.6C15.09 7.26 14.22 9.5 14 12h-4c-.22-2.5-1.09-4.74-2.47-6.4A7.96 7.96 0 0 1 12 4zM4.07 13H7c.22 2.06 1 3.92 2.15 5.39A8.03 8.03 0 0 1 4.07 13zM12 20a7.96 7.96 0 0 1-4.47-1.6C8.91 16.74 9.78 14.5 10 12h4c.22 2.5 1.09 4.74 2.47 6.4A7.96 7.96 0 0 1 12 20zm4.85-1.61C17 16.92 17.78 15.06 18 13h2.93a8.03 8.03 0 0 1-4.08 5.39z" />
             </svg>
           </a>
         </div>

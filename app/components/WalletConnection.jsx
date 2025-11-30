@@ -1,15 +1,22 @@
-import React, { useState, useEffect } from 'react';
+"use client";
+
+import React, { useState, useEffect } from "react";
 
 const getProvider = () => {
-  if ('starkey' in window) {
-    const provider = window.starkey?.supra;
+  if (typeof window === "undefined") {
+    return null;
+  }
 
+  if ("starkey" in window) {
+    const provider = window.starkey?.supra;
     if (provider) {
       return provider;
     }
   }
 
-  window.open('https://starkey.app/', '_blank');
+  // If no provider, open Starkey site in a new tab
+  window.open("https://starkey.app/", "_blank");
+  return null;
 };
 
 const WalletConnection = () => {
@@ -18,16 +25,18 @@ const WalletConnection = () => {
   useEffect(() => {
     const connectWallet = async () => {
       const provider = getProvider();
+      if (!provider) return;
+
       try {
         const accounts = await provider.connect();
         setAccount(accounts[0]);
         console.log(accounts[0]);
       } catch (err) {
-        console.error('User rejected the request', err);
+        console.error("User rejected the request", err);
       }
     };
 
-    // Add a 5-second delay before attempting to connect to the wallet
+    // Add a ~4-second delay before attempting to connect to the wallet
     const timeoutId = setTimeout(() => {
       connectWallet();
     }, 4000);

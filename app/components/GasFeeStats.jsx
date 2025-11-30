@@ -1,6 +1,7 @@
-// components/GasFeeStats.js
-import React, { useCallback, useEffect, useState } from 'react';
-import { RPC_BASE_URL, fetchSupraWrAccess } from './TokenGate';
+"use client";
+
+import React, { useCallback, useEffect, useState } from "react";
+import { RPC_BASE_URL, fetchSupraWrAccess } from "./TokenGate";
 
 // -------------------- BALANCE CONVERSION --------------------
 
@@ -31,7 +32,7 @@ function formatCompactBalance(raw) {
   // If rounding dropped meaningful digits → add "~"
   const needsApprox = full.slice(0, 4) !== rounded2.slice(0, 4);
 
-  return `${needsApprox ? '~' : ''}${rounded2}M`;
+  return `${needsApprox ? "~" : ""}${rounded2}M`;
 }
 
 // Approx USD formatter from a SUPRA amount string like "472.957000"
@@ -55,7 +56,7 @@ function formatUsdApproxFromSupraString(supraStr, supraUsdPrice) {
 // -------------------- WALLET DETECTION HELPERS --------------------
 
 function detectRawProvider() {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === "undefined") return null;
   const w = window;
 
   if (w.starkey && (w.starkey.supra || w.starkey.provider)) {
@@ -70,7 +71,7 @@ function detectRawProvider() {
 
 function normalizeAddress(acc) {
   if (!acc) return null;
-  if (typeof acc === 'string') return acc;
+  if (typeof acc === "string") return acc;
 
   return (
     acc.address ||
@@ -99,25 +100,25 @@ function normalizeAccounts(response) {
 }
 
 async function connectAndGetAccounts(provider) {
-  if (typeof provider.connect === 'function') {
+  if (typeof provider.connect === "function") {
     const res = await provider.connect();
     return normalizeAccounts(res);
   }
 
-  if (typeof provider.connectWallet === 'function') {
+  if (typeof provider.connectWallet === "function") {
     try {
-      await provider.connectWallet({ multiple: false, network: 'SUPRA' });
+      await provider.connectWallet({ multiple: false, network: "SUPRA" });
     } catch {
       await provider.connectWallet();
     }
 
-    if (typeof provider.getCurrentAccount === 'function') {
+    if (typeof provider.getCurrentAccount === "function") {
       const acc = await provider.getCurrentAccount();
       return normalizeAccounts(acc);
     }
   }
 
-  if (typeof provider.account === 'function') {
+  if (typeof provider.account === "function") {
     const res = await provider.account();
     return normalizeAccounts(res);
   }
@@ -128,12 +129,12 @@ async function connectAndGetAccounts(provider) {
 async function getExistingAccounts(provider) {
   if (!provider) return [];
 
-  if (typeof provider.account === 'function') {
+  if (typeof provider.account === "function") {
     const res = await provider.account();
     return normalizeAccounts(res);
   }
 
-  if (typeof provider.getCurrentAccount === 'function') {
+  if (typeof provider.getCurrentAccount === "function") {
     const acc = await provider.getCurrentAccount();
     return normalizeAccounts(acc);
   }
@@ -145,13 +146,13 @@ async function disconnectWallet(provider) {
   if (!provider) return;
 
   try {
-    if (typeof provider.disconnect === 'function') {
+    if (typeof provider.disconnect === "function") {
       await provider.disconnect();
-    } else if (typeof provider.disconnectWallet === 'function') {
+    } else if (typeof provider.disconnectWallet === "function") {
       await provider.disconnectWallet();
     }
   } catch (e) {
-    console.warn('StarKey disconnect error (ignored):', e);
+    console.warn("StarKey disconnect error (ignored):", e);
   }
 }
 
@@ -163,7 +164,7 @@ function formatSupraFromUnits(units) {
 
   const whole = units / denom;
   const frac = units % denom;
-  const fracStr = frac.toString().padStart(Number(decimals), '0').slice(0, 6);
+  const fracStr = frac.toString().padStart(Number(decimals), "0").slice(0, 6);
 
   return `${whole.toString()}.${fracStr}`;
 }
@@ -182,24 +183,24 @@ function computeHolderRankFromDisplay(balanceDisplay) {
   if (!balanceDisplay) return null;
 
   const cleanedInt = String(balanceDisplay)
-    .split('.')[0]
-    .replace(/,/g, '')
+    .split(".")[0]
+    .replace(/,/g, "")
     .trim();
 
   let whole;
   try {
-    whole = BigInt(cleanedInt || '0');
+    whole = BigInt(cleanedInt || "0");
   } catch {
     return null;
   }
 
   if (whole <= 0n) return null;
 
-  if (whole >= 10_000_000n) return 'Primal Master';
-  if (whole >= 1_000_000n) return 'Primal Titan';
-  if (whole >= 100_000n) return 'Primal Guardian';
-  if (whole >= 1_000n) return 'Scaleborn';
-  return 'Hatchling';
+  if (whole >= 10_000_000n) return "Primal Master";
+  if (whole >= 1_000_000n) return "Primal Titan";
+  if (whole >= 100_000n) return "Primal Guardian";
+  if (whole >= 1_000n) return "Scaleborn";
+  return "Hatchling";
 }
 
 // -------------------- TIMESTAMP HELPERS --------------------
@@ -221,14 +222,14 @@ function extractTxTimestampMs(tx) {
     if (!cand) continue;
 
     // Numeric timestamp
-    if (typeof cand === 'number') {
+    if (typeof cand === "number") {
       // If it looks like seconds, convert to ms
       if (cand < 1e12) return cand * 1000;
       return cand;
     }
 
     // String timestamp
-    if (typeof cand === 'string') {
+    if (typeof cand === "string") {
       const num = Number(cand);
       if (Number.isFinite(num) && num > 0) {
         if (num < 1e12) return num * 1000;
@@ -263,8 +264,8 @@ async function fetchLifetimeGasStats(
 
   while (page < maxPages) {
     const params = new URLSearchParams();
-    params.set('count', String(pageSize));
-    params.set('start', startCursor.toString());
+    params.set("count", String(pageSize));
+    params.set("start", startCursor.toString());
 
     const url = `${RPC_BASE_URL}/rpc/v2/accounts/${address}/coin_transactions?${params.toString()}`;
     const res = await fetch(url);
@@ -296,7 +297,7 @@ async function fetchLifetimeGasStats(
 
     totalTx += records.length;
 
-    if (typeof onPage === 'function') {
+    if (typeof onPage === "function") {
       onPage({
         page: page + 1,
         totalTx,
@@ -313,8 +314,8 @@ async function fetchLifetimeGasStats(
     if (records.length < pageSize) break;
   }
 
-  let totalSupra = '0.000000';
-  let avgSupra = '0.000000';
+  let totalSupra = "0.000000";
+  let avgSupra = "0.000000";
   let monthlyAvgSupra = null; // only set when we have ≥2 months
 
   if (totalUnits > 0n) {
@@ -349,12 +350,12 @@ export default function GasFeeStats() {
   const [provider, setProvider] = useState(null);
   const [walletInstalled, setWalletInstalled] = useState(null);
   const [connected, setConnected] = useState(false);
-  const [address, setAddress] = useState('');
+  const [address, setAddress] = useState("");
   const [txCount, setTxCount] = useState(0);
   const [totalSupra, setTotalSupra] = useState(null);
   const [avgSupra, setAvgSupra] = useState(null);
   const [monthlyAvgSupra, setMonthlyAvgSupra] = useState(null);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [connecting, setConnecting] = useState(false);
   const [calculating, setCalculating] = useState(false);
 
@@ -388,17 +389,17 @@ export default function GasFeeStats() {
       const { hasAccess, balanceDisplay } = await fetchSupraWrAccess(addr);
 
       setHasAccess(!!hasAccess);
-      setSupraWrBalanceDisplay(balanceDisplay || '0.000000');
+      setSupraWrBalanceDisplay(balanceDisplay || "0.000000");
 
       const rank = computeHolderRankFromDisplay(balanceDisplay);
       setHolderRank(rank);
 
       if (!hasAccess) {
         setError(
-          'Access denied: this wallet must hold at least 1,000 $SUPRAWR to use this tool.'
+          "Access denied: this wallet must hold at least 1,000 $SUPRAWR to use this tool."
         );
       } else {
-        setError('');
+        setError("");
       }
 
       return !!hasAccess;
@@ -460,14 +461,14 @@ export default function GasFeeStats() {
 
     async function fetchPrice() {
       try {
-        const res = await fetch('/api/supra-price');
+        const res = await fetch("/api/supra-price");
         if (!res.ok) return;
         const data = await res.json();
-        if (!cancelled && data && typeof data.priceUsd === 'number') {
+        if (!cancelled && data && typeof data.priceUsd === "number") {
           setSupraUsdPrice(data.priceUsd);
         }
       } catch (err) {
-        console.error('Failed to fetch SUPRA price:', err);
+        console.error("Failed to fetch SUPRA price:", err);
       }
     }
 
@@ -486,11 +487,11 @@ export default function GasFeeStats() {
 
   const handleAction = useCallback(
     async () => {
-      setError('');
+      setError("");
 
       if (!provider) {
         setWalletInstalled(false);
-        setError('StarKey wallet extension is not detected in this browser.');
+        setError("StarKey wallet extension is not detected in this browser.");
         return;
       }
 
@@ -501,7 +502,7 @@ export default function GasFeeStats() {
           const accounts = await connectAndGetAccounts(provider);
 
           if (!accounts.length) {
-            throw new Error('StarKey did not return any accounts.');
+            throw new Error("StarKey did not return any accounts.");
           }
 
           const addr = accounts[0];
@@ -514,8 +515,8 @@ export default function GasFeeStats() {
           console.error(e);
           const msg =
             e?.code === 4001
-              ? 'Connection request was rejected in StarKey.'
-              : 'Failed to connect StarKey wallet.';
+              ? "Connection request was rejected in StarKey."
+              : "Failed to connect StarKey wallet.";
           setError(msg);
         } finally {
           setConnecting(false);
@@ -527,7 +528,7 @@ export default function GasFeeStats() {
 
       // STEP 2: Already connected → verify SUPRAWR gate BEFORE calculating
       if (!address) {
-        setError('No wallet address available. Please connect again.');
+        setError("No wallet address available. Please connect again.");
         return;
       }
 
@@ -540,7 +541,7 @@ export default function GasFeeStats() {
       // STEP 3: CALCULATE LIFETIME GAS (COIN TX ONLY)
       try {
         setCalculating(true);
-        setError('');
+        setError("");
         setTotalSupra(null);
         setAvgSupra(null);
         setMonthlyAvgSupra(null);
@@ -548,23 +549,14 @@ export default function GasFeeStats() {
         setPagesProcessed(0);
         setProgressPercent(5);
 
-        const {
-          totalTx,
-          totalSupra,
-          avgSupra,
-          monthlyAvgSupra,
-        } = await fetchLifetimeGasStats(
-          address,
-          100,
-          5000,
-          ({ page }) => {
+        const { totalTx, totalSupra, avgSupra, monthlyAvgSupra } =
+          await fetchLifetimeGasStats(address, 100, 5000, ({ page }) => {
             setPagesProcessed(page);
             setProgressPercent((prev) => {
               const next = prev + 4;
               return next >= 95 ? 95 : next;
             });
-          }
-        );
+          });
 
         setPagesProcessed((prev) => (prev === 0 ? 1 : prev));
         setProgressPercent(100);
@@ -576,7 +568,7 @@ export default function GasFeeStats() {
         setMonthlyAvgSupra(monthlyAvgSupra);
       } catch (e) {
         console.error(e);
-        setError('Unable to fetch full coin transaction history from Supra RPC.');
+        setError("Unable to fetch full coin transaction history from Supra RPC.");
         setProgressPercent(0);
         setPagesProcessed(0);
       } finally {
@@ -588,11 +580,11 @@ export default function GasFeeStats() {
 
   const handleDisconnect = useCallback(
     async () => {
-      setError('');
+      setError("");
       await disconnectWallet(provider);
 
       setConnected(false);
-      setAddress('');
+      setAddress("");
       setTotalSupra(null);
       setAvgSupra(null);
       setMonthlyAvgSupra(null);
@@ -621,12 +613,12 @@ export default function GasFeeStats() {
 
   const walletButtonLabel =
     walletInstalled === false && !provider
-      ? 'Install StarKey'
+      ? "Install StarKey"
       : !connected
       ? connecting
-        ? 'Connecting…'
-        : 'Connect Wallet'
-      : 'Disconnect Wallet';
+        ? "Connecting…"
+        : "Connect Wallet"
+      : "Disconnect Wallet";
 
   const isWalletButtonDisabled =
     (walletInstalled === false && !provider) ||
@@ -636,18 +628,18 @@ export default function GasFeeStats() {
 
   const buttonLabel =
     walletInstalled === false && !provider
-      ? 'Install StarKey Wallet'
+      ? "Install StarKey Wallet"
       : !connected
       ? connecting
-        ? 'Connecting…'
-        : 'Connect StarKey Wallet'
+        ? "Connecting…"
+        : "Connect StarKey Wallet"
       : checkingAccess
-      ? 'Checking Access…'
+      ? "Checking Access…"
       : hasAccess === false
-      ? 'Access Denied (Need 1,000 $SUPRAWR)'
+      ? "Access Denied (Need 1,000 $SUPRAWR)"
       : calculating
-      ? 'Calculating…'
-      : 'Calculate Total Fees';
+      ? "Calculating…"
+      : "Calculate Total Fees";
 
   const isButtonDisabled =
     (walletInstalled === false && !provider) ||
@@ -677,7 +669,7 @@ export default function GasFeeStats() {
       {/* Top-right bar: Get link + Rank/Balance + Wallet button */}
       <div className="top-right-bar">
         <a
-          href="https://app.atmos.ag/en/token-studio/0x9bb4c4405d68f37a8277cf60327eca3b751f74c7986c849f17542733388a6613"
+          href="https://app.atmos.ag/en/token-studio/0x82ed1f483b5fc4ad105cef5330e480136d58156c30dc70cd2b9c342981997cee"
           className="get-suprawr-link"
           target="_blank"
           rel="noopener noreferrer"
@@ -740,13 +732,13 @@ export default function GasFeeStats() {
             <div className="tier-modal-body">
               {holderRank && supraWrBalanceDisplay && (
                 <div className="tier-current">
-                  Your rank{' '}
-                  <span className="tier-current-name">{holderRank}</span>{' '}
+                  Your rank{" "}
+                  <span className="tier-current-name">{holderRank}</span>{" "}
                   <span className="tier-current-balance">
                     (
                     {formatCompactBalance(
                       parseFloat(supraWrBalanceDisplay)
-                    )}{' '}
+                    )}{" "}
                     $SUPRAWR)
                   </span>
                 </div>
@@ -755,9 +747,9 @@ export default function GasFeeStats() {
               <ul className="tier-list">
                 <li
                   className={
-                    holderRank === 'Hatchling'
-                      ? 'tier-list-item current-tier'
-                      : 'tier-list-item'
+                    holderRank === "Hatchling"
+                      ? "tier-list-item current-tier"
+                      : "tier-list-item"
                   }
                 >
                   <span className="tier-name">Hatchling</span>
@@ -765,19 +757,21 @@ export default function GasFeeStats() {
                 </li>
                 <li
                   className={
-                    holderRank === 'Scaleborn'
-                      ? 'tier-list-item current-tier'
-                      : 'tier-list-item'
+                    holderRank === "Scaleborn"
+                      ? "tier-list-item current-tier"
+                      : "tier-list-item"
                   }
                 >
                   <span className="tier-name">Scaleborn</span>
-                  <span className="tier-range">1,000 – 99,999 $SUPRAWR</span>
+                  <span className="tier-range">
+                    1,000 – 99,999 $SUPRAWR
+                  </span>
                 </li>
                 <li
                   className={
-                    holderRank === 'Primal Guardian'
-                      ? 'tier-list-item current-tier'
-                      : 'tier-list-item'
+                    holderRank === "Primal Guardian"
+                      ? "tier-list-item current-tier"
+                      : "tier-list-item"
                   }
                 >
                   <span className="tier-name">Primal Guardian</span>
@@ -787,9 +781,9 @@ export default function GasFeeStats() {
                 </li>
                 <li
                   className={
-                    holderRank === 'Primal Titan'
-                      ? 'tier-list-item current-tier'
-                      : 'tier-list-item'
+                    holderRank === "Primal Titan"
+                      ? "tier-list-item current-tier"
+                      : "tier-list-item"
                   }
                 >
                   <span className="tier-name">Primal Titan</span>
@@ -799,9 +793,9 @@ export default function GasFeeStats() {
                 </li>
                 <li
                   className={
-                    holderRank === 'Primal Master'
-                      ? 'tier-list-item current-tier'
-                      : 'tier-list-item'
+                    holderRank === "Primal Master"
+                      ? "tier-list-item current-tier"
+                      : "tier-list-item"
                   }
                 >
                   <span className="tier-name">Primal Master</span>
@@ -825,8 +819,9 @@ export default function GasFeeStats() {
             <div>
               <h2 className="gas-title">GAS TRACKER</h2>
               <p className="gas-subtitle">
-                Estimates gas spent on <strong>coin ($SUPRA) transactions only</strong>{' '}
-                for your connected wallet using Supra&apos;s public RPC.
+                Estimates gas spent on{" "}
+                <strong>coin ($SUPRA) transactions only</strong> for your
+                connected wallet using Supra&apos;s public RPC.
               </p>
             </div>
           </div>
@@ -882,7 +877,9 @@ export default function GasFeeStats() {
             </div>
 
             <div className="result-row">
-              <span className="result-label">Estimated gas spent on coin txs</span>
+              <span className="result-label">
+                Estimated gas spent on coin txs
+              </span>
               <span className="result-value">
                 ~{totalSupra} $SUPRA
                 {totalSupraUsdDisplay && ` (~$${totalSupraUsdDisplay})`}
@@ -916,12 +913,13 @@ export default function GasFeeStats() {
         )}
 
         <p className="note">
-          This tool uses the public Supra RPC <code>coin_transactions</code>{' '}
-          endpoint only. It includes transactions with SUPRA coin movement for your
-          wallet, but may exclude some contract-only or system transactions that
-          explorers display. When actual <code>gas_used</code> is not available, it
-          estimates fees using <code>max_gas_amount × gas_unit_price</code>, which can
-          slightly overestimate total gas spent.
+          This tool uses the public Supra RPC <code>coin_transactions</code>{" "}
+          endpoint only. It includes transactions with SUPRA coin movement for
+          your wallet, but may exclude some contract-only or system transactions
+          that explorers display. When actual <code>gas_used</code> is not
+          available, it estimates fees using{" "}
+          <code>max_gas_amount × gas_unit_price</code>, which can slightly
+          overestimate total gas spent.
         </p>
       </section>
     </>
