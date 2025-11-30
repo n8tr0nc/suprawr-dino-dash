@@ -1,12 +1,13 @@
-// components/TokenGate.js
-import React, { useEffect, useState } from 'react';
+"use client";
+
+import React, { useEffect, useState } from "react";
 
 // Shared RPC base URL (still used by GasFeeStats for gas history)
-export const RPC_BASE_URL = 'https://rpc-mainnet.supra.com';
+export const RPC_BASE_URL = "https://rpc-mainnet.supra.com";
 
 // SUPRAWR token + requirement
 export const SUPRAWR_TOKEN_ADDRESS =
-  '0x82ed1f483b5fc4ad105cef5330e480136d58156c30dc70cd2b9c342981997cee';
+  "0x82ed1f483b5fc4ad105cef5330e480136d58156c30dc70cd2b9c342981997cee";
 
 // 1,000 whole SUPRAWR
 export const REQUIRED_SUPRAWR_WHOLE = 1_000n;
@@ -22,8 +23,8 @@ export async function fetchSupraWrAccess(address) {
   if (!address) {
     return {
       hasAccess: false,
-      balanceDisplay: '0.000000',
-      balanceRaw: '0',
+      balanceDisplay: "0.000000",
+      balanceRaw: "0",
     };
   }
 
@@ -32,36 +33,36 @@ export async function fetchSupraWrAccess(address) {
     const res = await fetch(url);
 
     if (!res.ok) {
-      console.warn('suprawr-balance API non-OK:', res.status);
+      console.warn("suprawr-balance API non-OK:", res.status);
       return {
         hasAccess: false,
-        balanceDisplay: '0.000000',
-        balanceRaw: '0',
+        balanceDisplay: "0.000000",
+        balanceRaw: "0",
       };
     }
 
     const data = await res.json();
 
     if (!data || data.ok === false) {
-      console.warn('suprawr-balance API error payload:', data);
+      console.warn("suprawr-balance API error payload:", data);
       return {
         hasAccess: false,
-        balanceDisplay: '0.000000',
-        balanceRaw: '0',
+        balanceDisplay: "0.000000",
+        balanceRaw: "0",
       };
     }
 
     return {
       hasAccess: !!data.meetsRequirement,
-      balanceDisplay: data.balanceDisplay || '0.000000',
-      balanceRaw: data.balanceRaw || '0',
+      balanceDisplay: data.balanceDisplay || "0.000000",
+      balanceRaw: data.balanceRaw || "0",
     };
   } catch (err) {
-    console.error('fetchSupraWrAccess failed:', err);
+    console.error("fetchSupraWrAccess failed:", err);
     return {
       hasAccess: false,
-      balanceDisplay: '0.000000',
-      balanceRaw: '0',
+      balanceDisplay: "0.000000",
+      balanceRaw: "0",
     };
   }
 }
@@ -78,7 +79,7 @@ export default function TokenGate({
 }) {
   const [loading, setLoading] = useState(true);
   const [allowed, setAllowed] = useState(false);
-  const [balanceDisplay, setBalanceDisplay] = useState('0.000000');
+  const [balanceDisplay, setBalanceDisplay] = useState("0.000000");
 
   useEffect(() => {
     let cancelled = false;
@@ -86,7 +87,7 @@ export default function TokenGate({
     const run = async () => {
       if (!address) {
         setAllowed(false);
-        setBalanceDisplay('0.000000');
+        setBalanceDisplay("0.000000");
         setLoading(false);
         return;
       }
@@ -96,7 +97,7 @@ export default function TokenGate({
       if (cancelled) return;
 
       setAllowed(!!res.hasAccess);
-      setBalanceDisplay(res.balanceDisplay || '0.000000');
+      setBalanceDisplay(res.balanceDisplay || "0.000000");
       setLoading(false);
     };
 
@@ -118,11 +119,11 @@ export default function TokenGate({
     return (
       <div
         style={{
-          marginTop: '120px',
-          color: '#d5502c',
-          fontFamily: 'monospace',
-          fontSize: '1.2rem',
-          textAlign: 'center',
+          marginTop: "120px",
+          color: "#d5502c",
+          fontFamily: "monospace",
+          fontSize: "1.2rem",
+          textAlign: "center",
         }}
       >
         ❌ Access denied.
