@@ -1,3 +1,278 @@
+/* =========================
+   DASHBOARD SHELL LAYOUT
+   ========================= */
+
+.dashboard-shell {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  background: #111111;
+  color: #f9d580;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-content: stretch;
+}
+
+/* SIDEBAR */
+
+.dashboard-sidebar {
+  width: 260px;
+  max-width: 260px;
+  background: #222222;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.sidebar-brand {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 32px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-content: center;
+  align-items: center;
+}
+
+.sidebar-brand-logo {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+
+.sidebar-brand-title {
+  font-family: "Oxanium", system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  font-size: 1.05rem;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  color: #f9d580;
+  width: 55%;
+}
+
+.sidebar-brand-tagline {
+  font-size: 0.72rem;
+  color: #30d630;
+  opacity: 0.85;
+  margin-top: 2px;
+  width: 100%;
+}
+
+.sidebar-section {
+  margin-top: 8px;
+}
+
+.sidebar-section-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #30d630;
+  opacity: 0.85;
+  margin-bottom: 8px;
+}
+
+.sidebar-modules-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sidebar-module {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 10px;
+  border-radius: 7px;
+  background: transparent;
+  color: #f9d580;
+  font-size: 0.82rem;
+  cursor: default;
+  opacity: 0.9;
+}
+
+.sidebar-module-active {
+  background: rgba(0, 22, 0, 0.8);
+  border: 1px solid #30d630;
+  box-shadow: 0 0 10px rgba(48, 214, 48, 0.25);
+}
+
+.sidebar-module-label {
+  font-weight: 500;
+}
+
+.sidebar-module-badge {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid #30d630;
+  color: #30d630;
+  white-space: nowrap;
+}
+
+.sidebar-module-badge--soon {
+  border-color: #555555;
+  color: #888888;
+}
+
+.sidebar-footer {
+  margin-top: 24px;
+  font-size: 0.7rem;
+  color: #666666;
+}
+
+/* MAIN DASHBOARD AREA */
+
+.dashboard-main {
+  flex: 1;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.dashboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.dashboard-title {
+  margin: 0;
+  font-family: "Oxanium", system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  font-size: 1.8rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #f9d580;
+}
+
+.dashboard-subtitle {
+  margin: 6px 0 0;
+  font-size: 0.88rem;
+  color: #d6e3c7;
+}
+
+/* GRID: MAIN + SIDE PANELS */
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2.1fr) minmax(0, 1.4fr);
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.dashboard-main-column,
+.dashboard-side-column {
+  min-width: 0;
+}
+
+/* PANELS */
+
+.dashboard-panel {
+  background: rgba(0, 16, 0, 0.86);
+  border-radius: 10px;
+  border: 1px solid #113516;
+  box-shadow: 0 0 14px rgba(0, 0, 0, 0.7);
+  padding: 14px 16px 16px;
+}
+
+.dashboard-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.dashboard-panel-title {
+  font-size: 0.84rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #f9d580;
+}
+
+.dashboard-panel-pill {
+  font-size: 0.7rem;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid #30d630;
+  color: #30d630;
+  white-space: nowrap;
+}
+
+.dashboard-pill-soon {
+  border-color: #555555;
+  color: #bbbbbb;
+}
+
+.dashboard-panel-body {
+  padding-top: 4px;
+}
+
+.dashboard-panel-placeholder {
+  font-size: 0.82rem;
+  color: #c1d4b5;
+  opacity: 0.9;
+}
+
+/* FOOTER */
+
+.dashboard-footer {
+  margin-top: 12px;
+  font-size: 0.72rem;
+  color: #8fa18b;
+}
+
+.dashboard-version {
+  opacity: 0.9;
+}
+
+/* Responsive tweaks */
+
+@media (max-width: 1200px) {
+  .dashboard-grid {
+    grid-template-columns: minmax(0, 1.7fr) minmax(0, 1.3fr);
+  }
+}
+
+@media (max-width: 980px) {
+  .dashboard-shell {
+    flex-direction: column;
+  }
+
+  .dashboard-sidebar {
+    width: 100%;
+    max-width: 100%;
+    border-right: none;
+    border-bottom: 1px solid #0e2713;
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+
+  .dashboard-main {
+    padding: 20px;
+  }
+
+  .dashboard-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dashboard-side-column {
+    margin-top: 12px;
+  }
+}
+
+/* =========================
+   EXISTING GAS TRACKER STYLES
+   (unchanged)
+   ========================= */
+
 /* PAGE LAYOUT (replaces old Home.module.css usage) */
 
 .page-container {
@@ -258,60 +533,14 @@ code {
   }
 }
 
-/* Corner SUPRAWR dino logo (top-left) */
-.corner-dino-logo {
-  position: fixed;
-  top: 24px;
-  left: 24px;
-  width: auto;
-  height: 64px;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 10px;
-  z-index: 20;
-}
-
-.corner-dino-logo img {
-  width: 48px;
-  height: 48px;
-  object-fit: contain;
-}
-
-.corner-dino-text {
-  font-family: "Oxanium", system-ui, -apple-system, BlinkMacSystemFont,
-    "Segoe UI", sans-serif;
-  font-weight: 700;
-  letter-spacing: 0;
-  text-transform: uppercase;
-  font-size: 1.4rem;
-  color: #b39628; /* Cream */
-}
-
-/* Gas icon inside the card */
-.gas-icon-circle {
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.gas-icon {
-  font-size: 2rem;
-  color: #b43f20; /* Dark Red */
-}
-
 /* Top-right bar: tier + balance + wallet button */
 .top-right-bar {
-  position: fixed;
-  top: 24px;
-  right: 24px;
   display: flex;
-  align-items: center;
   gap: 12px;
   z-index: 30;
-  height: 64px;
+  flex-direction: row;
+  justify-content: flex-end;
+  align-items: center;
 }
 
 .holder-tier-display {
@@ -331,14 +560,16 @@ code {
     "Segoe UI", sans-serif;
   font-weight: 600;
   font-size: 0.9rem;
-  color: #f9d580; /* Cream / gold */
+  color: #30d630;
   text-decoration: none;
   white-space: nowrap;
+  transition: color 0.2s ease, text-shadow 0.2s ease;
 }
 
 .get-suprawr-link:hover {
-  color: #ffffff;
-  text-decoration: underline;
+  color: #7ae97a;
+  text-decoration: none;
+  text-shadow: 0px 0px 4px #7ae97a;
 }
 
 .holder-tier-title {
@@ -381,24 +612,6 @@ code {
   opacity: 0.6;
   cursor: default;
   box-shadow: none;
-}
-
-/* "Get $SUPRAWR" link in top-right bar */
-.get-suprawr-link {
-  font-family: "Oxanium", system-ui, -apple-system, BlinkMacSystemFont,
-    "Segoe UI", sans-serif;
-  font-weight: 600;
-  font-size: 0.9rem;
-  color: #30d630;
-  text-decoration: none;
-  white-space: nowrap;
-  transition: color 0.2s ease, text-shadow 0.2s ease;
-}
-
-.get-suprawr-link:hover {
-  color: #7ae97a;
-  text-decoration: none;
-  text-shadow: 0px 0px 4px #7ae97a;
 }
 
 /* Clickable tier title */

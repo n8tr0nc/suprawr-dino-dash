@@ -1,17 +1,13 @@
 body {
   margin: 0;
   padding: 0;
-  background-color: #222222; /* Charcoal body background */
-  color: #30d630; /* Body text = Green */
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
+  background-color: #020705;
+  color: #30d630; /* default body text = Green */
   font-family: monospace;
 }
 
 main {
-  text-align: center;
+  text-align: left;
 }
 
 /* Generic buttons (not the main CTA) still on-brand */
@@ -50,7 +46,7 @@ p {
   margin-bottom: 20px;
 }
 
-/* Social buttons, on-brand */
+/* Social buttons (old landing-style buttons, kept for reuse if needed) */
 
 .social-buttons {
   display: flex;
