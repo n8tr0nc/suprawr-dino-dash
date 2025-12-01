@@ -92,7 +92,7 @@ async function disconnectWallet(provider) {
 }
 
 /* ------------------------------------------------------------------
-   WALLET SYNC BROADCAST EVENT
+   GLOBAL EVENTS
 ------------------------------------------------------------------ */
 
 function broadcastWalletState(address, connected) {
@@ -100,6 +100,15 @@ function broadcastWalletState(address, connected) {
   window.dispatchEvent(
     new CustomEvent("suprawr:walletChange", {
       detail: { address, connected },
+    })
+  );
+}
+
+function broadcastTierState(holderRank, balanceDisplay) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("suprawr:tierUpdate", {
+      detail: { holderRank, balanceDisplay },
     })
   );
 }
@@ -142,7 +151,7 @@ function formatCompactBalance(raw) {
    TOP RIGHT BAR COMPONENT
 ------------------------------------------------------------------ */
 
-export default function TopRightBar() {
+export default function TopRightBar({ onToggleSidebar }) {
   const [provider, setProvider] = useState(null);
   const [walletInstalled, setWalletInstalled] = useState(null);
   const [connected, setConnected] = useState(false);
@@ -153,8 +162,6 @@ export default function TopRightBar() {
   const [supraWrBalanceDisplay, setSupraWrBalanceDisplay] = useState(null);
   const [holderRank, setHolderRank] = useState(null);
 
-  const [showRankModal, setShowRankModal] = useState(false);
-
   /* ------------------------------------------------------------------
      ACCESS CHECKER
   ------------------------------------------------------------------ */
@@ -164,15 +171,20 @@ export default function TopRightBar() {
       setHasAccess(null);
       setSupraWrBalanceDisplay(null);
       setHolderRank(null);
+      broadcastTierState(null, null);
       return false;
     }
 
     setCheckingAccess(true);
     try {
       const { hasAccess, balanceDisplay } = await fetchSupraWrAccess(addr);
+      const rank = computeHolderRankFromDisplay(balanceDisplay);
+
       setHasAccess(!!hasAccess);
       setSupraWrBalanceDisplay(balanceDisplay || "0");
-      setHolderRank(computeHolderRankFromDisplay(balanceDisplay));
+      setHolderRank(rank);
+
+      broadcastTierState(rank, balanceDisplay || "0");
     } finally {
       setCheckingAccess(false);
     }
@@ -241,6 +253,7 @@ export default function TopRightBar() {
         setHasAccess(null);
         setSupraWrBalanceDisplay(null);
         setHolderRank(null);
+        broadcastTierState(null, null);
       }
     }
 
@@ -265,6 +278,7 @@ export default function TopRightBar() {
       await disconnectWallet(provider);
 
       broadcastWalletState("", false);
+      broadcastTierState(null, null);
 
       setConnected(false);
       setAddress("");
@@ -298,7 +312,7 @@ export default function TopRightBar() {
       ? "Install StarKey"
       : !connected
       ? "Connect Wallet"
-      : "Disconnect Wallet";
+      : "Disconnect";
 
   const isWalletButtonDisabled =
     (walletInstalled === false && !provider) || checkingAccess;
@@ -308,106 +322,26 @@ export default function TopRightBar() {
   ------------------------------------------------------------------ */
 
   return (
-    <>
-      <div className="top-right-bar">
-
-        {/* Link to Buy SUPRAWR */}
-        <a
-          href="https://app.atmos.ag/en/token-studio/0x82ed1f483b5fc4ad105cef5330e480136d58156c30dc70cd2b9c342981997cee"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="get-suprawr-link"
-        >
-          Get $SUPRAWR
-        </a>
-
-        {/* Rank + Balance */}
-        {connected && supraWrBalanceDisplay && (
-          <div className="holder-tier-display">
-            {holderRank && (
-              <button
-                className="holder-tier-title-button"
-                onClick={() => setShowRankModal(true)}
-              >
-                [{holderRank}]
-              </button>
-            )}
-            <span className="holder-tier-balance">
-              {formatCompactBalance(parseFloat(supraWrBalanceDisplay))} $SUPRAWR
-            </span>
-          </div>
-        )}
-
-        {/* Connect / Disconnect */}
+    <div className="top-right-bar">
+      {typeof onToggleSidebar === "function" && (
         <button
-          className="top-right-wallet-button"
-          onClick={handleWalletButtonClick}
-          disabled={isWalletButtonDisabled}
+          className="mobile-menu-toggle"
           type="button"
+          aria-label="Open navigation"
+          onClick={onToggleSidebar}
         >
-          {walletButtonLabel}
+          ☰
         </button>
-      </div>
-
-      {/* RANK MODAL */}
-      {showRankModal && (
-        <div
-          className="modal-001-overlay tier-modal-overlay"
-          onClick={() => setShowRankModal(false)}
-        >
-          <div
-            className="modal-001 tier-modal"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="modal-001-header tier-modal-header">
-              <h3 className="modal-001-title tier-modal-title">
-                $SUPRAWR Holder Ranks
-              </h3>
-              <button
-                className="modal-001-close tier-modal-close"
-                onClick={() => setShowRankModal(false)}
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="modal-001-body tier-modal-body">
-              {holderRank && (
-                <div className="tier-current">
-                  Your rank{" "}
-                  <span className="tier-current-name">{holderRank}</span>{" "}
-                  <span className="tier-current-balance">
-                    ({formatCompactBalance(parseFloat(supraWrBalanceDisplay))}{" "}
-                    $SUPRAWR)
-                  </span>
-                </div>
-              )}
-
-              <ul className="tier-list">
-                <li className={`tier-list-item ${holderRank === "Hatchling" ? "current-tier" : ""}`}>
-                  Hatchling <span className="tier-range">1 – 999</span>
-                </li>
-
-                <li className={`tier-list-item ${holderRank === "Scaleborn" ? "current-tier" : ""}`}>
-                  Scaleborn <span className="tier-range">1k – 99k</span>
-                </li>
-
-                <li className={`tier-list-item ${holderRank === "Primal Guardian" ? "current-tier" : ""}`}>
-                  Primal Guardian <span className="tier-range">100k – 999k</span>
-                </li>
-
-                <li className={`tier-list-item ${holderRank === "Primal Titan" ? "current-tier" : ""}`}>
-                  Primal Titan <span className="tier-range">1M – 9.9M</span>
-                </li>
-
-                <li className={`tier-list-item ${holderRank === "Primal Master" ? "current-tier" : ""}`}>
-                  Primal Master <span className="tier-range">10M+</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-        </div>
       )}
-    </>
+
+      <button
+        className="top-right-wallet-button"
+        onClick={handleWalletButtonClick}
+        disabled={isWalletButtonDisabled}
+        type="button"
+      >
+        {walletButtonLabel}
+      </button>
+    </div>
   );
 }
