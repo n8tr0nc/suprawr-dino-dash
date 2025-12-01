@@ -325,7 +325,72 @@ async function fetchLifetimeGasStats(
     }
   }
 
-  return { totalTx, totalSupra, avgSupra, monthlyAvgSupra };
+  const latestTxTimestampMs = latestTs ?? null;
+
+  return { totalTx, totalSupra, avgSupra, monthlyAvgSupra, latestTxTimestampMs };
+}
+
+// -------------------- LOCAL CACHE HELPERS --------------------
+
+const GAS_CACHE_PREFIX = "suprawr_gas_cache_v1:";
+
+function getGasCacheKey(address) {
+  if (!address) return null;
+  return `${GAS_CACHE_PREFIX}${address.toLowerCase()}`;
+}
+
+function loadGasCache(address) {
+  if (typeof window === "undefined") return null;
+  const key = getGasCacheKey(address);
+  if (!key) return null;
+
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw);
+    if (!parsed || !parsed.address) return null;
+    if (parsed.address.toLowerCase() !== address.toLowerCase()) return null;
+
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function saveGasCache(address, payload) {
+  if (typeof window === "undefined") return;
+  const key = getGasCacheKey(address);
+  if (!key) return;
+
+  try {
+    const toStore = {
+      address,
+      updatedAtMs: Date.now(),
+      ...payload,
+    };
+    window.localStorage.setItem(key, JSON.stringify(toStore));
+  } catch {
+    // ignore storage failures
+  }
+}
+
+// Lightweight “head” call: get latest tx timestamp only
+async function fetchLatestTxTimestampMs(address) {
+  const params = new URLSearchParams();
+  params.set("count", "1");
+  params.set("start", "0");
+
+  const url = `${RPC_BASE_URL}/rpc/v2/accounts/${address}/coin_transactions?${params.toString()}`;
+  const res = await fetch(url);
+
+  if (!res.ok) throw new Error(`RPC head error ${res.status}`);
+
+  const data = await res.json();
+  const records = Array.isArray(data?.record) ? data.record : [];
+  if (!records.length) return null;
+
+  return extractTxTimestampMs(records[0]);
 }
 
 // -------------------- MAIN COMPONENT --------------------
@@ -359,8 +424,8 @@ export default function GasFeeStats() {
 
   const runAccessCheck = useCallback(async (addr) => {
     if (!addr) {
-      setHasAccess(null);      // not false → null means "no wallet"
-      setError("");            // CLEAR ERROR when no wallet is connected
+      setHasAccess(null);
+      setError("");
       setSupraWrBalanceDisplay(null);
       setHolderRank(null);
       return false;
@@ -371,7 +436,7 @@ export default function GasFeeStats() {
       const { hasAccess, balanceDisplay } = await fetchSupraWrAccess(addr);
 
       setHasAccess(!!hasAccess);
-      if (hasAccess) setError("");   // auto-clear error when allowed
+      if (hasAccess) setError("");
       setSupraWrBalanceDisplay(balanceDisplay || "0.000000");
 
       const rank = computeHolderRankFromDisplay(balanceDisplay);
@@ -391,6 +456,152 @@ export default function GasFeeStats() {
     }
   }, []);
 
+  // Core calculation + cache writer
+  const runGasCalculationWithCache = useCallback(
+    async (addr) => {
+      if (!addr) return;
+
+      try {
+        setCalculating(true);
+        setError("");
+        setTotalSupra(null);
+        setAvgSupra(null);
+        setMonthlyAvgSupra(null);
+        setTxCount(0);
+        setPagesProcessed(0);
+        setProgressPercent(5);
+
+        const {
+          totalTx,
+          totalSupra,
+          avgSupra,
+          monthlyAvgSupra,
+          latestTxTimestampMs,
+        } = await fetchLifetimeGasStats(addr, 100, 5000, ({ page }) => {
+          setPagesProcessed(page);
+          setProgressPercent((prev) => {
+            const next = prev + 4;
+            return next >= 95 ? 95 : next;
+          });
+        });
+
+        setPagesProcessed((prev) => (prev === 0 ? 1 : prev));
+        setProgressPercent(100);
+        await new Promise((resolve) => setTimeout(resolve, 250));
+
+        setTxCount(totalTx);
+        setTotalSupra(totalSupra);
+        setAvgSupra(avgSupra);
+        setMonthlyAvgSupra(monthlyAvgSupra);
+
+        saveGasCache(addr, {
+          totalTx,
+          totalSupra,
+          avgSupra,
+          monthlyAvgSupra,
+          latestTxTimestampMs: latestTxTimestampMs || null,
+        });
+      } catch (e) {
+        console.error(e);
+        setError(
+          "Unable to fetch full coin transaction history from Supra RPC."
+        );
+        setProgressPercent(0);
+        setPagesProcessed(0);
+      } finally {
+        setCalculating(false);
+      }
+    },
+    []
+  );
+
+  // Single source of truth: access + cache + maybe calc
+  const runAccessAndMaybeCalc = useCallback(
+    async (addr) => {
+      if (!addr) return;
+      setError("");
+
+      // 1) Access gate
+      const allowed = await runAccessCheck(addr);
+      if (!allowed) return;
+
+      // 2) Load cache
+      const cache = loadGasCache(addr);
+
+      // 2a) First-time wallet (no cache): ALWAYS do a full scan once
+      if (!cache) {
+        await runGasCalculationWithCache(addr);
+        return;
+      }
+
+      // 2b) Cache age: force refresh if too old
+      const MAX_CACHE_AGE_MS = 2 * 60 * 1000; // 2 minutes
+      const now = Date.now();
+      const cacheAgeMs =
+        typeof cache.updatedAtMs === "number"
+          ? now - cache.updatedAtMs
+          : null;
+
+      if (cacheAgeMs != null && cacheAgeMs > MAX_CACHE_AGE_MS) {
+        console.debug(
+          "[GasTracker] Cache too old, forcing full recalculation.",
+          { cacheAgeMs }
+        );
+        await runGasCalculationWithCache(addr);
+        return;
+      }
+
+      // 2c) Hydrate from cache into UI
+      setTxCount(cache.totalTx || 0);
+      setTotalSupra(cache.totalSupra || null);
+      setAvgSupra(cache.avgSupra || null);
+      setMonthlyAvgSupra(cache.monthlyAvgSupra || null);
+      setPagesProcessed(0);
+      setProgressPercent(0);
+
+      // 3) Check latest on-chain vs cached; only recalc if newer
+      try {
+        const latestOnChain = await fetchLatestTxTimestampMs(addr);
+        const cachedLatest =
+          typeof cache.latestTxTimestampMs === "number"
+            ? cache.latestTxTimestampMs
+            : null;
+
+        // No usable latest timestamp → just trust cache
+        if (latestOnChain == null) {
+          console.debug(
+            "[GasTracker] Using cached stats (no latestOnChain timestamp)."
+          );
+          return;
+        }
+
+        // On-chain timestamp not newer than cached → keep cache
+        if (cachedLatest != null && latestOnChain <= cachedLatest) {
+          console.debug(
+            "[GasTracker] Using cached stats (no newer coin tx detected).",
+            { latestOnChain, cachedLatest }
+          );
+          return;
+        }
+
+        // 4) Only here if we genuinely need a fresh calc
+        setTxCount(0);
+        setTotalSupra(null);
+        setAvgSupra(null);
+        setMonthlyAvgSupra(null);
+        setPagesProcessed(0);
+        setProgressPercent(0);
+
+        await runGasCalculationWithCache(addr);
+      } catch (e) {
+        console.error("Auto gas calc error:", e);
+        // If we had cache, we already hydrated it, so just log the issue
+      }
+    },
+    [runAccessCheck, runGasCalculationWithCache]
+  );
+
+  // Initial provider detection + auto-flow if wallet already connected
   useEffect(() => {
     let cancelled = false;
     setWalletInstalled(null);
@@ -412,9 +623,12 @@ export default function GasFeeStats() {
             const addr = existing[0];
             setConnected(true);
             setAddress(addr);
-            await runAccessCheck(addr);
+            // run access + cache + calc for already-connected wallet
+            runAccessAndMaybeCalc(addr);
           }
-        } catch {}
+        } catch {
+          // ignore
+        }
 
         return;
       }
@@ -429,8 +643,9 @@ export default function GasFeeStats() {
       cancelled = true;
       clearInterval(intervalId);
     };
-  }, [runAccessCheck]);
+  }, [runAccessAndMaybeCalc]);
 
+  // SUPRA price polling
   useEffect(() => {
     let cancelled = false;
 
@@ -456,16 +671,22 @@ export default function GasFeeStats() {
     };
   }, []);
 
-    useEffect(() => {
+  // Listen for global wallet change events (TopRightBar, etc.)
+  useEffect(() => {
     if (typeof window === "undefined") return;
 
     function handleWalletChange(event) {
-      const { address: addr, connected: isConnected } = event.detail || {};
+      const { address: newAddr, connected: isConnected } = event.detail || {};
+
+      // If it's the SAME wallet and same connection status, do nothing
+      if (newAddr === address && isConnected === connected) {
+        return;
+      }
 
       setConnected(!!isConnected);
-      setAddress(addr || "");
+      setAddress(newAddr || "");
 
-      // ALWAYS CLEAR PREVIOUS RESULTS ON WALLET CHANGE
+      // Clear results ONLY when wallet actually changed or disconnected
       setTxCount(0);
       setTotalSupra(null);
       setAvgSupra(null);
@@ -473,15 +694,14 @@ export default function GasFeeStats() {
       setPagesProcessed(0);
       setProgressPercent(0);
 
-      if (addr && isConnected) {
-        // Re-run access check for new wallet
-        runAccessCheck(addr);
-      } else {
-        // No wallet connected – clear gate + errors
+      if (!isConnected || !newAddr) {
         setHasAccess(null);
         setSupraWrBalanceDisplay(null);
         setHolderRank(null);
         setError("");
+      } else {
+        // New wallet connected → run full flow
+        runAccessAndMaybeCalc(newAddr);
       }
     }
 
@@ -489,7 +709,7 @@ export default function GasFeeStats() {
     return () => {
       window.removeEventListener("suprawr:walletChange", handleWalletChange);
     };
-  }, [runAccessCheck]);
+  }, [address, connected, runAccessAndMaybeCalc]);
 
   const handleAction = useCallback(
     async () => {
@@ -501,6 +721,7 @@ export default function GasFeeStats() {
         return;
       }
 
+      // CONNECT FLOW
       if (!connected) {
         try {
           setConnecting(true);
@@ -513,10 +734,10 @@ export default function GasFeeStats() {
           const addr = accounts[0];
           setAddress(addr);
           setConnected(true);
-          await runAccessCheck(addr);
 
-          // Notify other UI pieces (TopRightBar, etc.)
+          // Notify others + run local flow
           broadcastWalletState(addr, true);
+          await runAccessAndMaybeCalc(addr);
         } catch (e) {
           console.error(e);
           const msg =
@@ -531,6 +752,7 @@ export default function GasFeeStats() {
         return;
       }
 
+      // CALCULATION FLOW (manual button press)
       if (!address) {
         setError("No wallet address available. Please connect again.");
         return;
@@ -539,59 +761,30 @@ export default function GasFeeStats() {
       const allowed = await runAccessCheck(address);
       if (!allowed) return;
 
-      try {
-        setCalculating(true);
-        setError("");
-        setTotalSupra(null);
-        setAvgSupra(null);
-        setMonthlyAvgSupra(null);
-        setTxCount(0);
-        setPagesProcessed(0);
-        setProgressPercent(5);
-
-        const { totalTx, totalSupra, avgSupra, monthlyAvgSupra } =
-          await fetchLifetimeGasStats(address, 100, 5000, ({ page }) => {
-            setPagesProcessed(page);
-            setProgressPercent((prev) => {
-              const next = prev + 4;
-              return next >= 95 ? 95 : next;
-            });
-          });
-
-        setPagesProcessed((prev) => (prev === 0 ? 1 : prev));
-        setProgressPercent(100);
-        await new Promise((resolve) => setTimeout(resolve, 250));
-
-        setTxCount(totalTx);
-        setTotalSupra(totalSupra);
-        setAvgSupra(avgSupra);
-        setMonthlyAvgSupra(monthlyAvgSupra);
-      } catch (e) {
-        console.error(e);
-        setError(
-          "Unable to fetch full coin transaction history from Supra RPC."
-        );
-        setProgressPercent(0);
-        setPagesProcessed(0);
-      } finally {
-        setCalculating(false);
-      }
+      // Manual calc always forces a fresh full scan + cache update
+      await runGasCalculationWithCache(address);
     },
-    [provider, connected, address, runAccessCheck]
+    [
+      provider,
+      connected,
+      address,
+      runAccessCheck,
+      runGasCalculationWithCache,
+      runAccessAndMaybeCalc,
+    ]
   );
 
-    const handleDisconnect = useCallback(
+  const handleDisconnect = useCallback(
     async () => {
       setError("");
       await disconnectWallet(provider);
 
-      // Notify others that wallet is now disconnected
       broadcastWalletState("", false);
 
       setConnected(false);
       setAddress("");
-      setHasAccess(null);               // reset access gate
-      setError("");                     // CLEAR ERROR
+      setHasAccess(null);
+      setError("");
       setSupraWrBalanceDisplay(null);
       setHolderRank(null);
       setTotalSupra(null);
