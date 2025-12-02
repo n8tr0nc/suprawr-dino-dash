@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
-import { RPC_BASE_URL, fetchSupraWrAccess } from "./TokenGate";
+import { fetchSupraWrAccess } from "./TokenGate";
 
 /* ------------------------------------------------------------------
    PROVIDER + NORMALIZATION UTILITIES (shared with GasFeeStats)
@@ -104,11 +104,11 @@ function broadcastWalletState(address, connected) {
   );
 }
 
-function broadcastTierState(holderRank, balanceDisplay) {
+function broadcastTierState(holderRank, balanceDisplay, supraBalance) {
   if (typeof window === "undefined") return;
   window.dispatchEvent(
     new CustomEvent("suprawr:tierUpdate", {
-      detail: { holderRank, balanceDisplay },
+      detail: { holderRank, balanceDisplay, supraBalance },
     })
   );
 }
@@ -139,12 +139,59 @@ function computeHolderRankFromDisplay(balanceDisplay) {
   return null;
 }
 
+/**
+ * Simple compact formatter for balances (K / M).
+ */
 function formatCompactBalance(raw) {
   const num = Number(raw);
   if (isNaN(num)) return raw;
   if (num < 1000) return num.toString();
   if (num < 1_000_000) return `${(num / 1000).toFixed(1)}K`;
   return `${(num / 1_000_000).toFixed(2)}M`;
+}
+
+/* ------------------------------------------------------------------
+   NATIVE $SUPRA BALANCE HELPER (frontend -> API route)
+------------------------------------------------------------------ */
+
+/**
+ * Fetch native $SUPRA balance for a wallet.
+ * Assumes a Next.js API route at /api/supra-balance returning:
+ *   { balanceDisplay: string, balanceRaw: string }
+ *
+ * Never throws – always returns a safe shape.
+ */
+async function fetchSupraNativeBalance(address) {
+  if (!address) {
+    return {
+      balanceDisplay: "0.000000",
+      balanceRaw: "0",
+    };
+  }
+
+  try {
+    const url = `/api/supra-balance?address=${encodeURIComponent(address)}`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      console.warn("supra-balance API non-OK:", res.status);
+      return {
+        balanceDisplay: "0.000000",
+        balanceRaw: "0",
+      };
+    }
+
+    const data = await res.json();
+    return {
+      balanceDisplay: data?.balanceDisplay || "0.000000",
+      balanceRaw: data?.balanceRaw || "0",
+    };
+  } catch (err) {
+    console.error("fetchSupraNativeBalance failed:", err);
+    return {
+      balanceDisplay: "0.000000",
+      balanceRaw: "0",
+    };
+  }
 }
 
 /* ------------------------------------------------------------------
@@ -161,9 +208,10 @@ export default function TopRightBar({ onToggleSidebar }) {
   const [hasAccess, setHasAccess] = useState(null);
   const [supraWrBalanceDisplay, setSupraWrBalanceDisplay] = useState(null);
   const [holderRank, setHolderRank] = useState(null);
+  const [supraBalanceDisplay, setSupraBalanceDisplay] = useState(null);
 
   /* ------------------------------------------------------------------
-     ACCESS CHECKER
+     ACCESS CHECKER + SUPRA BALANCE
   ------------------------------------------------------------------ */
 
   const runAccessCheck = useCallback(async (addr) => {
@@ -171,20 +219,30 @@ export default function TopRightBar({ onToggleSidebar }) {
       setHasAccess(null);
       setSupraWrBalanceDisplay(null);
       setHolderRank(null);
-      broadcastTierState(null, null);
+      setSupraBalanceDisplay(null);
+      broadcastTierState(null, null, null);
       return false;
     }
 
     setCheckingAccess(true);
     try {
-      const { hasAccess, balanceDisplay } = await fetchSupraWrAccess(addr);
+      const [{ hasAccess, balanceDisplay }, supraNative] = await Promise.all([
+        fetchSupraWrAccess(addr),
+        fetchSupraNativeBalance(addr),
+      ]);
+
       const rank = computeHolderRankFromDisplay(balanceDisplay);
+      const supraDisplay = supraNative.balanceDisplay || "0";
 
       setHasAccess(!!hasAccess);
       setSupraWrBalanceDisplay(balanceDisplay || "0");
       setHolderRank(rank);
+      setSupraBalanceDisplay(supraDisplay);
 
-      broadcastTierState(rank, balanceDisplay || "0");
+      // Broadcast for sidebar/page.jsx
+      broadcastTierState(rank, balanceDisplay || "0", supraDisplay);
+
+      return !!hasAccess;
     } finally {
       setCheckingAccess(false);
     }
@@ -252,8 +310,9 @@ export default function TopRightBar({ onToggleSidebar }) {
       } else {
         setHasAccess(null);
         setSupraWrBalanceDisplay(null);
+        setSupraBalanceDisplay(null);
         setHolderRank(null);
-        broadcastTierState(null, null);
+        broadcastTierState(null, null, null);
       }
     }
 
@@ -278,12 +337,13 @@ export default function TopRightBar({ onToggleSidebar }) {
       await disconnectWallet(provider);
 
       broadcastWalletState("", false);
-      broadcastTierState(null, null);
+      broadcastTierState(null, null, null);
 
       setConnected(false);
       setAddress("");
       setHasAccess(null);
       setSupraWrBalanceDisplay(null);
+      setSupraBalanceDisplay(null);
       setHolderRank(null);
       return;
     }

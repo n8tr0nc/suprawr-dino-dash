@@ -14,7 +14,7 @@ main {
 button {
   padding: 15px 30px;
   font-size: 18px;
-  color: #f9d580; /* Cream text */
+  color: #feeecd; /* Cream text */
   background-color: #d5502c; /* Red */
   border: none;
   border-radius: 8px;
@@ -25,8 +25,8 @@ button {
 }
 
 button:hover {
-  background-color: #b43f20;
-  box-shadow: 0px 4px 8px rgba(60, 38, 0, 0.8);
+  background-color: #387038;
+  box-shadow: 0px 0 8px #111111;
 }
 
 button:active {

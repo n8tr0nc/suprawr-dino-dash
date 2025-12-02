@@ -13,12 +13,43 @@ function formatCompactBalance(raw) {
   return `${(num / 1_000_000).toFixed(2)}M`;
 }
 
+/* Same rank logic as GasFeeStats */
+function computeHolderRankFromDisplay(balanceDisplay) {
+  if (!balanceDisplay) return null;
+
+  const cleanedInt = String(balanceDisplay)
+    .split(".")[0]
+    .replace(/,/g, "")
+    .trim();
+
+  let whole;
+  try {
+    whole = BigInt(cleanedInt || "0");
+  } catch {
+    return null;
+  }
+
+  if (whole <= 0n) return null;
+
+  if (whole >= 10_000_000n) return "Primal Master";
+  if (whole >= 1_000_000n) return "Primal Titan";
+  if (whole >= 100_000n) return "Primal Guardian";
+  if (whole >= 1_000n) return "Scaleborn";
+  return "Hatchling";
+}
+
 export default function Home() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const [holderRank, setHolderRank] = useState(null);
   const [supraWrBalanceDisplay, setSupraWrBalanceDisplay] = useState(null);
+  const [supraBalanceDisplay, setSupraBalanceDisplay] = useState(null);
   const [showRankModal, setShowRankModal] = useState(false);
+  const [supraUsdPrice, setSupraUsdPrice] = useState(null);
+
+  // For refresh button
+  const [currentAddress, setCurrentAddress] = useState(null);
+  const [refreshingBalances, setRefreshingBalances] = useState(false);
 
   const toggleSidebar = () => {
     setIsSidebarOpen((prev) => !prev);
@@ -33,9 +64,10 @@ export default function Home() {
     if (typeof window === "undefined") return;
 
     function handleTierUpdate(event) {
-      const { holderRank, balanceDisplay } = event.detail || {};
+      const { holderRank, balanceDisplay, supraBalance } = event.detail || {};
       setHolderRank(holderRank || null);
       setSupraWrBalanceDisplay(balanceDisplay || null);
+      setSupraBalanceDisplay(supraBalance || null);
     }
 
     window.addEventListener("suprawr:tierUpdate", handleTierUpdate);
@@ -43,6 +75,125 @@ export default function Home() {
       window.removeEventListener("suprawr:tierUpdate", handleTierUpdate);
     };
   }, []);
+
+  /* Track current connected wallet address from global walletChange events */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    function handleWalletChange(event) {
+      const { address, connected } = event.detail || {};
+      if (connected && address) {
+        setCurrentAddress(address);
+
+        // On every connect, fetch a fresh, uncached SUPRA USD price
+        (async () => {
+          try {
+            const res = await fetch(`/api/supra-price?t=${Date.now()}`);
+            if (!res.ok) return;
+            const data = await res.json();
+            if (data && typeof data.priceUsd === "number") {
+              setSupraUsdPrice(data.priceUsd);
+            }
+          } catch (err) {
+            console.error(
+              "Failed to fetch SUPRA price on wallet connect:",
+              err
+            );
+          }
+        })();
+      } else {
+        setCurrentAddress(null);
+        setSupraBalanceDisplay(null);
+        setSupraUsdPrice(null);
+        // Don't clear SUPRAWR here; TopRightBar / refresh can repopulate.
+      }
+    }
+
+    window.addEventListener("suprawr:walletChange", handleWalletChange);
+    return () => {
+      window.removeEventListener("suprawr:walletChange", handleWalletChange);
+    };
+  }, []);
+
+  /* Fetch SUPRA USD price once initially (page load) */
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchPrice() {
+      try {
+        const res = await fetch(`/api/supra-price?t=${Date.now()}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled && data && typeof data.priceUsd === "number") {
+          setSupraUsdPrice(data.priceUsd);
+        }
+      } catch (err) {
+        console.error("Failed to fetch SUPRA price:", err);
+      }
+    }
+
+    fetchPrice();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Manual refresh for SUPRA balance + price + SUPRAWR balance
+  const handleRefreshBalances = async () => {
+    if (!currentAddress) {
+      console.warn("No connected wallet address; cannot refresh balances.");
+      return;
+    }
+
+    try {
+      setRefreshingBalances(true);
+
+      const [balRes, priceRes, suprawrRes] = await Promise.all([
+        fetch(
+          `/api/supra-balance?address=${encodeURIComponent(currentAddress)}`
+        ),
+        fetch(`/api/supra-price?t=${Date.now()}`),
+        fetch(
+          `/api/suprawr-balance?address=${encodeURIComponent(currentAddress)}`
+        ),
+      ]);
+
+      // SUPRA native balance
+      if (balRes.ok) {
+        const balData = await balRes.json();
+        if (balData && typeof balData.balanceDisplay === "string") {
+          setSupraBalanceDisplay(balData.balanceDisplay);
+        }
+      }
+
+      // SUPRA USD price
+      if (priceRes.ok) {
+        const priceData = await priceRes.json();
+        if (priceData && typeof priceData.priceUsd === "number") {
+          setSupraUsdPrice(priceData.priceUsd);
+        }
+      }
+
+      // SUPRAWR balance (no USD, just total + rank)
+      if (suprawrRes.ok) {
+        const wrData = await suprawrRes.json();
+        if (wrData && typeof wrData.balanceDisplay === "string") {
+          setSupraWrBalanceDisplay(wrData.balanceDisplay);
+          const newRank = computeHolderRankFromDisplay(wrData.balanceDisplay);
+          setHolderRank(newRank);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to refresh balances:", err);
+    } finally {
+      setRefreshingBalances(false);
+    }
+  };
+
+  const supraNativeUsdDisplay =
+    supraBalanceDisplay && supraUsdPrice != null
+      ? (parseFloat(supraBalanceDisplay) * supraUsdPrice).toFixed(2)
+      : null;
 
   return (
     <div className={`dashboard-shell ${isSidebarOpen ? "sidebar-open" : ""}`}>
@@ -53,6 +204,7 @@ export default function Home() {
         }`}
       >
         <div className="sidebar-top">
+          {/* BRANDING */}
           <div className="sidebar-brand">
             <img
               src="/suprawr001.webp"
@@ -65,22 +217,56 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Rank + balance + Get link block */}
-          <div className="sidebar-holder-block">
-            {holderRank && supraWrBalanceDisplay && (
+          {/* RANK TAG RIGHT UNDER TAGLINE */}
+          {holderRank && (
+            <button
+              type="button"
+              className="sidebar-rank"
+              onClick={() => setShowRankModal(true)}
+            >
+              <span className="sidebar-holder-rank">[{holderRank}]</span>
+            </button>
+          )}
+
+          {/* COINS, BALANCES */}
+          <div className="sidebar-section">
+            {/* HEADER, REFRESH */}
+            <div className="sidebar-section-header balances-inside">
+              <div className="sidebar-section-label">Balances</div>
               <button
                 type="button"
-                className="sidebar-holder-display"
-                onClick={() => setShowRankModal(true)}
+                className="sidebar-refresh-button"
+                onClick={handleRefreshBalances}
+                disabled={refreshingBalances || !currentAddress}
+                aria-label="Refresh balances"
               >
-                <span className="sidebar-holder-rank">[{holderRank}]</span>
-                <span className="sidebar-holder-balance">
+                {refreshingBalances ? "…" : "↻"}
+              </button>
+            </div>
+
+            {/* $SUPRA */}
+            {supraBalanceDisplay && (
+              <div className="sidebar-balance-line">
+                <span className="sidebar-balance-line-label">$SUPRA</span>
+                <span className="sidebar-balance-line-right">
+                  {formatCompactBalance(
+                    parseFloat(supraBalanceDisplay || "0")
+                  )}
+                  {supraNativeUsdDisplay && ` (~$${supraNativeUsdDisplay})`}
+                </span>
+              </div>
+            )}
+
+            {/* $SUPRAWR (same layout as SUPRA, no USD) */}
+            {supraWrBalanceDisplay && (
+              <div className="sidebar-balance-line">
+                <span className="sidebar-balance-line-label">$SUPRAWR</span>
+                <span className="sidebar-balance-line-right">
                   {formatCompactBalance(
                     parseFloat(supraWrBalanceDisplay || "0")
-                  )}{" "}
-                  $SUPRAWR
+                  )}
                 </span>
-              </button>
+              </div>
             )}
 
             <a
@@ -89,11 +275,11 @@ export default function Home() {
               rel="noopener noreferrer"
               className="get-suprawr-link sidebar-get-link"
             >
-              Get $SUPRAWR
-              🡵
+              Get $SUPRAWR 🡵
             </a>
           </div>
 
+          {/* MODULES LIST */}
           <div className="sidebar-section">
             <div className="sidebar-section-label">Modules</div>
             <ul className="sidebar-modules-list">
@@ -178,7 +364,7 @@ export default function Home() {
               width="24"
               fill="currentColor"
             >
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm7.93 9H17c-.22-2.06-1-3.92-2.15-5.39A8.03 8.03 0 0 1 19.93 11zM12 4c1.62 0 3.2.56 4.47 1.6C15.09 7.26 14.22 9.5 14 12h-4c-.22-2.5-1.09-4.74-2.47-6.4A7.96 7.96 0 0 1 12 4zM4.07 13H7c.22 2.06 1 3.92 2.15 5.39A8.03 8.03 0 0 1 4.07 13zM12 20a7.96 7.96 0 0 1-4.47-1.6C8.91 16.74 9.78 14.5 10 12h4c.22 2.5 1.09 4.74 2.47 6.4A7.96 7.96 0 0 1 12 20zm4.85-1.61C17 16.92 17.78 15.06 18 13h2.93a8.03 8.03 0 0 1-4.08 5.39z" />
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm7.93 9H17c-.22-2.06-1-3.92-2.15-5.39A8.03 8.03 0 0 1 19.93 11zM12 4c1.62 0 3.2.56 4.47 1.6C15.09 7.26 14.22 9.5 14 12h-4c-.22 2.5-1.09 4.74-2.47 6.4A7.96 7.96 0 0 1 12 4zM4.07 13H7c.22 2.06 1 3.92 2.15 5.39A8.03 8.03 0 0 1 4.07 13zM12 20a7.96 7.96 0 0 1-4.47-1.6C8.91 16.74 9.78 14.5 10 12h4c.22 2.5 1.09 4.74 2.47 6.4A7.96 7.96 0 0 1 12 20zm4.85-1.61C17 16.92 17.78 15.06 18 13h2.93a8.03 8.03 0 0 1-4.08 5.39z" />
             </svg>
           </a>
         </div>
@@ -283,7 +469,7 @@ export default function Home() {
         </button>
       </nav>
 
-      {/* RANK MODAL (uses data from tierUpdate) */}
+      {/* RANK MODAL (uses data from tierUpdate / refresh) */}
       {showRankModal && holderRank && supraWrBalanceDisplay && (
         <div
           className="modal-001-overlay tier-modal-overlay"
