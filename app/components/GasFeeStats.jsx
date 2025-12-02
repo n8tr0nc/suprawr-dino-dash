@@ -557,7 +557,8 @@ export default function GasFeeStats() {
       setProgressPercent(0);
 
       // 3) TTL check – only recalc if cache is "old"
-      const updatedAtMs = typeof cache.updatedAtMs === "number" ? cache.updatedAtMs : 0;
+      const updatedAtMs =
+        typeof cache.updatedAtMs === "number" ? cache.updatedAtMs : 0;
       const cacheAgeMs = Date.now() - updatedAtMs;
 
       if (cacheAgeMs <= MAX_CACHE_AGE_MS) {
@@ -689,9 +690,11 @@ export default function GasFeeStats() {
     async () => {
       setError("");
 
+      // If no provider, open Starkey site instead of doing nothing
       if (!provider) {
-        setWalletInstalled(false);
-        setError("StarKey wallet extension is not detected in this browser.");
+        if (typeof window !== "undefined") {
+          window.open("https://starkey.app", "_blank");
+        }
         return;
       }
 
@@ -790,11 +793,9 @@ export default function GasFeeStats() {
         : "Connect Wallet"
       : "Disconnect Wallet";
 
+  // IMPORTANT: allow click when wallet not installed so we can open Starkey site
   const isWalletButtonDisabled =
-    (walletInstalled === false && !provider) ||
-    connecting ||
-    calculating ||
-    checkingAccess;
+    connecting || calculating || checkingAccess;
 
   const buttonLabel =
     walletInstalled === false && !provider
@@ -813,8 +814,8 @@ export default function GasFeeStats() {
       ? "Recalculate Gas Fees"
       : "Calculate Gas Fees";
 
+  // Same: don't disable just because wallet isn't installed
   const isButtonDisabled =
-    (walletInstalled === false && !provider) ||
     connecting ||
     calculating ||
     checkingAccess ||
@@ -874,13 +875,28 @@ export default function GasFeeStats() {
 
               <div className="modal-001-body gas-info-body">
                 <p>
-                  This tool estimates gas spent on{" "} <strong>coin ($SUPRA) transactions only</strong> for your connected wallet using Supra’s public RPC.
+                  This tool estimates gas spent on{" "}
+                  <strong>coin ($SUPRA) transactions only</strong> for your
+                  connected wallet using Supra’s public RPC.
                 </p>
                 <p>
-                  It uses the <code>coin_transactions</code> endpoint and may exclude contract-only or system-level activity shown in some explorers. When <code>gas_used</code> is unavailable, fees are estimated using <code>max_gas_amount × gas_unit_price</code>, which can slightly overestimate totals.
+                  It uses the <code>coin_transactions</code> endpoint and may
+                  exclude contract-only or system-level activity shown in some
+                  explorers. When <code>gas_used</code> is unavailable, fees are
+                  estimated using <code>max_gas_amount × gas_unit_price</code>,
+                  which can slightly overestimate totals.
                 </p>
                 <p>
-                  To improve performance, the tool <strong>automatically scans and calculates when you connect your wallet</strong>, then <strong>caches the results for 24 hours</strong>. If you reconnect within that window, the cached results are shown instantly. After 24 hours, the tool will automatically run a fresh scan. You can manually force a recalculation at any time using <strong>Recalculate Gas Fees</strong>.
+                  To improve performance, the tool{" "}
+                  <strong>
+                    automatically scans and calculates when you connect your
+                    wallet
+                  </strong>
+                  , then <strong>caches the results for 24 hours</strong>. If
+                  you reconnect within that window, the cached results are shown
+                  instantly. After 24 hours, the tool will automatically run a
+                  fresh scan. You can manually force a recalculation at any time
+                  using <strong>Recalculate Gas Fees</strong>.
                 </p>
               </div>
             </div>

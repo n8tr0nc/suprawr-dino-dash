@@ -154,13 +154,6 @@ function formatCompactBalance(raw) {
    NATIVE $SUPRA BALANCE HELPER (frontend -> API route)
 ------------------------------------------------------------------ */
 
-/**
- * Fetch native $SUPRA balance for a wallet.
- * Assumes a Next.js API route at /api/supra-balance returning:
- *   { balanceDisplay: string, balanceRaw: string }
- *
- * Never throws – always returns a safe shape.
- */
 async function fetchSupraNativeBalance(address) {
   if (!address) {
     return {
@@ -327,8 +320,11 @@ export default function TopRightBar({ onToggleSidebar }) {
   ------------------------------------------------------------------ */
 
   const handleWalletButtonClick = async () => {
+    // If no provider, send user to Starkey site
     if (!provider) {
-      setWalletInstalled(false);
+      if (typeof window !== "undefined") {
+        window.open("https://starkey.app", "_blank");
+      }
       return;
     }
 
@@ -374,8 +370,8 @@ export default function TopRightBar({ onToggleSidebar }) {
       ? "Connect Wallet"
       : "Disconnect";
 
-  const isWalletButtonDisabled =
-    (walletInstalled === false && !provider) || checkingAccess;
+  // IMPORTANT: don't disable when Starkey isn't installed – we want the click
+  const isWalletButtonDisabled = checkingAccess;
 
   /* ------------------------------------------------------------------
      RENDER
