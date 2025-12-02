@@ -42,6 +42,8 @@
   gap: 10px;
   margin-top: auto;
   margin-bottom: 6px;
+  padding-top: 20px;
+  border-top: 1px solid #0e2713;
 }
 
 /* Version footer (bottom, below icons) */
@@ -56,7 +58,6 @@
 .sidebar-brand {
   display: flex;
   gap: 5px;
-  margin-bottom: 15px;
   flex-direction: row;
   flex-wrap: wrap;
   align-content: center;
@@ -89,12 +90,8 @@
   padding: 4px;
   margin: 0 -20px;
   width: 200%;
-  background-color: #111111;
+  /*background-color: #111111;*/
   text-align: center;
-}
-
-.sidebar-section {
-  margin-top: 8px;
 }
 
 .sidebar-section-label {
@@ -108,7 +105,7 @@
 .sidebar-modules-list {
   list-style: none;
   margin: 0;
-  padding: 0;
+  padding: 0 0 20px 0;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -908,6 +905,9 @@ code {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  border-top: 1px solid #0e2713;
+  border-bottom: 1px solid #0e2713;
+  padding: 20px 0;
 }
 
 .sidebar-holder-display {

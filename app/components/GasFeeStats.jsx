@@ -194,37 +194,70 @@ function computeHolderRankFromDisplay(balanceDisplay) {
   return "Hatchling";
 }
 
-// -------------------- TIMESTAMP HELPERS --------------------
+// -------------------- TIMESTAMP HELPERS (used in full scan) --------------------
+
+function parseTimestampValue(val) {
+  if (val == null) return null;
+
+  if (typeof val === "number") {
+    const num = val;
+    if (!Number.isFinite(num) || num <= 0) return null;
+    return num < 1e12 ? num * 1000 : num;
+  }
+
+  if (typeof val === "bigint") {
+    const asNum = Number(val);
+    if (!Number.isFinite(asNum) || asNum <= 0) return null;
+    return asNum < 1e12 ? asNum * 1000 : asNum;
+  }
+
+  if (typeof val === "string") {
+    const trimmed = val.trim();
+    if (!trimmed) return null;
+
+    const num = Number(trimmed);
+    if (Number.isFinite(num) && num > 0) {
+      return num < 1e12 ? num * 1000 : num;
+    }
+
+    const parsed = Date.parse(trimmed);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+
+  return null;
+}
 
 function extractTxTimestampMs(tx) {
   if (!tx) return null;
 
   const header = tx?.header || tx?.block_header || tx?.meta || {};
-  const candidates = [
+
+  const explicitCandidates = [
     header.timestamp,
     header.time,
+    header.block_timestamp,
+    header.block_timestamp_ms,
+    header.commit_timestamp,
     tx.timestamp,
     tx.time,
     tx.block_time,
   ];
 
-  for (const cand of candidates) {
-    if (!cand) continue;
+  for (const cand of explicitCandidates) {
+    const parsed = parseTimestampValue(cand);
+    if (parsed != null) return parsed;
+  }
 
-    if (typeof cand === "number") {
-      if (cand < 1e12) return cand * 1000;
-      return cand;
-    }
+  const objectsToScan = [header, tx];
+  for (const obj of objectsToScan) {
+    if (!obj || typeof obj !== "object") continue;
 
-    if (typeof cand === "string") {
-      const num = Number(cand);
-      if (!Number.isNaN(num) && num > 0) {
-        if (num < 1e12) return num * 1000;
-        return num;
-      }
+    for (const [key, val] of Object.entries(obj)) {
+      const k = key.toLowerCase();
+      if (!k.includes("time")) continue;
 
-      const parsed = Date.parse(cand);
-      if (!Number.isNaN(parsed)) return parsed;
+      const parsed = parseTimestampValue(val);
+      if (parsed != null) return parsed;
     }
   }
 
@@ -333,6 +366,7 @@ async function fetchLifetimeGasStats(
 // -------------------- LOCAL CACHE HELPERS --------------------
 
 const GAS_CACHE_PREFIX = "suprawr_gas_cache_v1:";
+const MAX_CACHE_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours TTL
 
 function getGasCacheKey(address) {
   if (!address) return null;
@@ -373,24 +407,6 @@ function saveGasCache(address, payload) {
   } catch {
     // ignore storage failures
   }
-}
-
-// Lightweight “head” call: get latest tx timestamp only
-async function fetchLatestTxTimestampMs(address) {
-  const params = new URLSearchParams();
-  params.set("count", "1");
-  params.set("start", "0");
-
-  const url = `${RPC_BASE_URL}/rpc/v2/accounts/${address}/coin_transactions?${params.toString()}`;
-  const res = await fetch(url);
-
-  if (!res.ok) throw new Error(`RPC head error ${res.status}`);
-
-  const data = await res.json();
-  const records = Array.isArray(data?.record) ? data.record : [];
-  if (!records.length) return null;
-
-  return extractTxTimestampMs(records[0]);
 }
 
 // -------------------- MAIN COMPONENT --------------------
@@ -476,7 +492,6 @@ export default function GasFeeStats() {
           totalSupra,
           avgSupra,
           monthlyAvgSupra,
-          latestTxTimestampMs,
         } = await fetchLifetimeGasStats(addr, 100, 5000, ({ page }) => {
           setPagesProcessed(page);
           setProgressPercent((prev) => {
@@ -499,7 +514,6 @@ export default function GasFeeStats() {
           totalSupra,
           avgSupra,
           monthlyAvgSupra,
-          latestTxTimestampMs: latestTxTimestampMs || null,
         });
       } catch (e) {
         console.error(e);
@@ -515,7 +529,7 @@ export default function GasFeeStats() {
     []
   );
 
-  // Single source of truth: access + cache + maybe calc
+  // Single source of truth: access + cache + TTL-based maybe calc
   const runAccessAndMaybeCalc = useCallback(
     async (addr) => {
       if (!addr) return;
@@ -534,24 +548,7 @@ export default function GasFeeStats() {
         return;
       }
 
-      // 2b) Cache age: force refresh if too old
-      const MAX_CACHE_AGE_MS = 2 * 60 * 1000; // 2 minutes
-      const now = Date.now();
-      const cacheAgeMs =
-        typeof cache.updatedAtMs === "number"
-          ? now - cache.updatedAtMs
-          : null;
-
-      if (cacheAgeMs != null && cacheAgeMs > MAX_CACHE_AGE_MS) {
-        console.debug(
-          "[GasTracker] Cache too old, forcing full recalculation.",
-          { cacheAgeMs }
-        );
-        await runGasCalculationWithCache(addr);
-        return;
-      }
-
-      // 2c) Hydrate from cache into UI
+      // 2b) Hydrate from cache into UI
       setTxCount(cache.totalTx || 0);
       setTotalSupra(cache.totalSupra || null);
       setAvgSupra(cache.avgSupra || null);
@@ -559,44 +556,24 @@ export default function GasFeeStats() {
       setPagesProcessed(0);
       setProgressPercent(0);
 
-      // 3) Check latest on-chain vs cached; only recalc if newer
-      try {
-        const latestOnChain = await fetchLatestTxTimestampMs(addr);
-        const cachedLatest =
-          typeof cache.latestTxTimestampMs === "number"
-            ? cache.latestTxTimestampMs
-            : null;
+      // 3) TTL check – only recalc if cache is "old"
+      const updatedAtMs = typeof cache.updatedAtMs === "number" ? cache.updatedAtMs : 0;
+      const cacheAgeMs = Date.now() - updatedAtMs;
 
-        // No usable latest timestamp → just trust cache
-        if (latestOnChain == null) {
-          console.debug(
-            "[GasTracker] Using cached stats (no latestOnChain timestamp)."
-          );
-          return;
-        }
-
-        // On-chain timestamp not newer than cached → keep cache
-        if (cachedLatest != null && latestOnChain <= cachedLatest) {
-          console.debug(
-            "[GasTracker] Using cached stats (no newer coin tx detected).",
-            { latestOnChain, cachedLatest }
-          );
-          return;
-        }
-
-        // 4) Only here if we genuinely need a fresh calc
-        setTxCount(0);
-        setTotalSupra(null);
-        setAvgSupra(null);
-        setMonthlyAvgSupra(null);
-        setPagesProcessed(0);
-        setProgressPercent(0);
-
-        await runGasCalculationWithCache(addr);
-      } catch (e) {
-        console.error("Auto gas calc error:", e);
-        // If we had cache, we already hydrated it, so just log the issue
+      if (cacheAgeMs <= MAX_CACHE_AGE_MS) {
+        // Cache is "fresh enough" – keep using it
+        return;
       }
+
+      // Cache is old → run a fresh full scan
+      setTxCount(0);
+      setTotalSupra(null);
+      setAvgSupra(null);
+      setMonthlyAvgSupra(null);
+      setPagesProcessed(0);
+      setProgressPercent(0);
+
+      await runGasCalculationWithCache(addr);
     },
     [runAccessCheck, runGasCalculationWithCache]
   );
@@ -678,7 +655,6 @@ export default function GasFeeStats() {
     function handleWalletChange(event) {
       const { address: newAddr, connected: isConnected } = event.detail || {};
 
-      // If it's the SAME wallet and same connection status, do nothing
       if (newAddr === address && isConnected === connected) {
         return;
       }
@@ -686,7 +662,6 @@ export default function GasFeeStats() {
       setConnected(!!isConnected);
       setAddress(newAddr || "");
 
-      // Clear results ONLY when wallet actually changed or disconnected
       setTxCount(0);
       setTotalSupra(null);
       setAvgSupra(null);
@@ -700,7 +675,6 @@ export default function GasFeeStats() {
         setHolderRank(null);
         setError("");
       } else {
-        // New wallet connected → run full flow
         runAccessAndMaybeCalc(newAddr);
       }
     }
@@ -735,7 +709,6 @@ export default function GasFeeStats() {
           setAddress(addr);
           setConnected(true);
 
-          // Notify others + run local flow
           broadcastWalletState(addr, true);
           await runAccessAndMaybeCalc(addr);
         } catch (e) {
@@ -761,7 +734,6 @@ export default function GasFeeStats() {
       const allowed = await runAccessCheck(address);
       if (!allowed) return;
 
-      // Manual calc always forces a fresh full scan + cache update
       await runGasCalculationWithCache(address);
     },
     [
@@ -837,7 +809,9 @@ export default function GasFeeStats() {
       ? "Access Denied (Need 1,000 $SUPRAWR)"
       : calculating
       ? "Calculating…"
-      : "Calculate Total Fees";
+      : totalSupra
+      ? "Recalculate Gas Fees"
+      : "Calculate Gas Fees";
 
   const isButtonDisabled =
     (walletInstalled === false && !provider) ||
@@ -900,16 +874,13 @@ export default function GasFeeStats() {
 
               <div className="modal-001-body gas-info-body">
                 <p>
-                  This tool estimates gas spent on{" "}
-                  <strong>coin ($SUPRA) transactions only</strong> for your
-                  connected wallet using Supra’s public RPC.
+                  This tool estimates gas spent on{" "} <strong>coin ($SUPRA) transactions only</strong> for your connected wallet using Supra’s public RPC.
                 </p>
                 <p>
-                  It uses the <code>coin_transactions</code> endpoint and may
-                  exclude contract-only or system-level activity shown in some
-                  explorers. When <code>gas_used</code> is unavailable, fees are
-                  estimated using <code>max_gas_amount × gas_unit_price</code>,
-                  which can slightly overestimate totals.
+                  It uses the <code>coin_transactions</code> endpoint and may exclude contract-only or system-level activity shown in some explorers. When <code>gas_used</code> is unavailable, fees are estimated using <code>max_gas_amount × gas_unit_price</code>, which can slightly overestimate totals.
+                </p>
+                <p>
+                  To improve performance, the tool <strong>automatically scans and calculates when you connect your wallet</strong>, then <strong>caches the results for 24 hours</strong>. If you reconnect within that window, the cached results are shown instantly. After 24 hours, the tool will automatically run a fresh scan. You can manually force a recalculation at any time using <strong>Recalculate Gas Fees</strong>.
                 </p>
               </div>
             </div>
