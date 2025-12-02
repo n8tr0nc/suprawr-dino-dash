@@ -1026,3 +1026,115 @@ button.sidebar-rank:hover {
   color: #30d630;
   font-size: 0.9rem;
 }
+
+/* =====================================================
+   GAS HISTORY CHART PANEL
+   ===================================================== */
+
+.dashboard-panel-body {
+  position: relative;
+}
+
+/* Container spacing for charts */
+.gas-history-chart-container {
+  width: 100%;
+  height: 340px;
+  padding: 10px 0;
+}
+
+/* Panel title */
+.dashboard-panel-header h3,
+.gas-history-title {
+  margin: 0;
+  padding: 0;
+  color: #f9d580;
+  font-family: var(--font-oxanium, monospace);
+  font-size: 0.95rem;
+  text-transform: uppercase;
+}
+
+/* =====================================================
+   TOGGLE SWITCH (PER-TX ↔ CUMULATIVE)
+   ===================================================== */
+
+.gas-toggle-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: monospace;
+  font-size: 0.85rem;
+  color: #feeecd;
+}
+
+.gas-toggle-wrapper span {
+  transition: opacity 0.15s ease;
+}
+
+/* Switch container */
+.gas-toggle-switch {
+  position: relative;
+  width: 50px;
+  height: 22px;
+  border-radius: 22px;
+  background: #0e2713;
+  border: 1px solid #30d630;
+  cursor: pointer;
+}
+
+/* Hidden checkbox */
+.gas-toggle-switch input {
+  display: none;
+}
+
+/* Slider knob */
+.gas-toggle-knob {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 20px;
+  height: 20px;
+  background: #30d630;
+  border-radius: 50%;
+  transition: all 0.18s ease-out;
+}
+
+.gas-toggle-switch input:checked + .gas-toggle-knob {
+  left: 27px;
+}
+
+/* =====================================================
+   RECHARTS OVERRIDES
+   ===================================================== */
+
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+  stroke: #113516 !important;
+  opacity: 0.35 !important;
+}
+
+.recharts-tooltip-wrapper {
+  outline: none !important;
+}
+
+.recharts-tooltip-label {
+  color: #7ae97a !important;
+}
+
+/* Tooltip body */
+.recharts-default-tooltip {
+  background: #001600 !important;
+  border: 1px solid #30d630 !important;
+  border-radius: 2px !important;
+  box-shadow: 0 0 10px #30d630 !important;
+  color: #feeecd !important;
+  font-family: monospace !important;
+  font-size: 0.82rem !important;
+}
+
+/* No history placeholder */
+.gas-history-empty {
+  color: #feeecd;
+  opacity: 0.8;
+  font-size: 0.9rem;
+  font-family: monospace;
+}

@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import TopRightBar from "./components/TopRightBar";
 import GasFeeStats from "./components/GasFeeStats";
+import GasHistoryChart from "./components/GasHistoryChart";
 
 /* Simple compact format for sidebar display */
 function formatCompactBalance(raw) {
@@ -47,17 +48,11 @@ export default function Home() {
   const [showRankModal, setShowRankModal] = useState(false);
   const [supraUsdPrice, setSupraUsdPrice] = useState(null);
 
-  // For refresh button
   const [currentAddress, setCurrentAddress] = useState(null);
   const [refreshingBalances, setRefreshingBalances] = useState(false);
 
-  const toggleSidebar = () => {
-    setIsSidebarOpen((prev) => !prev);
-  };
-
-  const closeSidebar = () => {
-    setIsSidebarOpen(false);
-  };
+  const toggleSidebar = () => setIsSidebarOpen((prev) => !prev);
+  const closeSidebar = () => setIsSidebarOpen(false);
 
   /* Listen for tier updates sent from TopRightBar */
   useEffect(() => {
@@ -71,12 +66,10 @@ export default function Home() {
     }
 
     window.addEventListener("suprawr:tierUpdate", handleTierUpdate);
-    return () => {
-      window.removeEventListener("suprawr:tierUpdate", handleTierUpdate);
-    };
+    return () => window.removeEventListener("suprawr:tierUpdate", handleTierUpdate);
   }, []);
 
-  /* Track current connected wallet address from global walletChange events */
+  /* Track current connected wallet address */
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -85,7 +78,6 @@ export default function Home() {
       if (connected && address) {
         setCurrentAddress(address);
 
-        // On every connect, fetch a fresh, uncached SUPRA USD price
         (async () => {
           try {
             const res = await fetch(`/api/supra-price?t=${Date.now()}`);
@@ -95,27 +87,21 @@ export default function Home() {
               setSupraUsdPrice(data.priceUsd);
             }
           } catch (err) {
-            console.error(
-              "Failed to fetch SUPRA price on wallet connect:",
-              err
-            );
+            console.error("Failed to fetch SUPRA price on wallet connect:", err);
           }
         })();
       } else {
         setCurrentAddress(null);
         setSupraBalanceDisplay(null);
         setSupraUsdPrice(null);
-        // Don't clear SUPRAWR here; TopRightBar / refresh can repopulate.
       }
     }
 
     window.addEventListener("suprawr:walletChange", handleWalletChange);
-    return () => {
-      window.removeEventListener("suprawr:walletChange", handleWalletChange);
-    };
+    return () => window.removeEventListener("suprawr:walletChange", handleWalletChange);
   }, []);
 
-  /* Fetch SUPRA USD price once initially (page load) */
+  /* Fetch SUPRA USD price once on load */
   useEffect(() => {
     let cancelled = false;
 
@@ -123,6 +109,7 @@ export default function Home() {
       try {
         const res = await fetch(`/api/supra-price?t=${Date.now()}`);
         if (!res.ok) return;
+
         const data = await res.json();
         if (!cancelled && data && typeof data.priceUsd === "number") {
           setSupraUsdPrice(data.priceUsd);
@@ -133,12 +120,9 @@ export default function Home() {
     }
 
     fetchPrice();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
-  // Manual refresh for SUPRA balance + price + SUPRAWR balance
   const handleRefreshBalances = async () => {
     if (!currentAddress) {
       console.warn("No connected wallet address; cannot refresh balances.");
@@ -149,16 +133,11 @@ export default function Home() {
       setRefreshingBalances(true);
 
       const [balRes, priceRes, suprawrRes] = await Promise.all([
-        fetch(
-          `/api/supra-balance?address=${encodeURIComponent(currentAddress)}`
-        ),
+        fetch(`/api/supra-balance?address=${encodeURIComponent(currentAddress)}`),
         fetch(`/api/supra-price?t=${Date.now()}`),
-        fetch(
-          `/api/suprawr-balance?address=${encodeURIComponent(currentAddress)}`
-        ),
+        fetch(`/api/suprawr-balance?address=${encodeURIComponent(currentAddress)}`)
       ]);
 
-      // SUPRA native balance
       if (balRes.ok) {
         const balData = await balRes.json();
         if (balData && typeof balData.balanceDisplay === "string") {
@@ -166,7 +145,6 @@ export default function Home() {
         }
       }
 
-      // SUPRA USD price
       if (priceRes.ok) {
         const priceData = await priceRes.json();
         if (priceData && typeof priceData.priceUsd === "number") {
@@ -174,13 +152,11 @@ export default function Home() {
         }
       }
 
-      // SUPRAWR balance (no USD, just total + rank)
       if (suprawrRes.ok) {
         const wrData = await suprawrRes.json();
         if (wrData && typeof wrData.balanceDisplay === "string") {
           setSupraWrBalanceDisplay(wrData.balanceDisplay);
-          const newRank = computeHolderRankFromDisplay(wrData.balanceDisplay);
-          setHolderRank(newRank);
+          setHolderRank(computeHolderRankFromDisplay(wrData.balanceDisplay));
         }
       }
     } catch (err) {
@@ -194,15 +170,10 @@ export default function Home() {
     supraBalanceDisplay && supraUsdPrice != null
       ? (parseFloat(supraBalanceDisplay) * supraUsdPrice).toFixed(2)
       : null;
-
   return (
     <div className={`dashboard-shell ${isSidebarOpen ? "sidebar-open" : ""}`}>
       {/* LEFT SIDEBAR */}
-      <aside
-        className={`dashboard-sidebar ${
-          isSidebarOpen ? "sidebar-open" : ""
-        }`}
-      >
+      <aside className={`dashboard-sidebar ${isSidebarOpen ? "sidebar-open" : ""}`}>
         <div className="sidebar-top">
           {/* BRANDING */}
           <div className="sidebar-brand">
@@ -212,12 +183,10 @@ export default function Home() {
               className="sidebar-brand-logo"
             />
             <div className="sidebar-brand-title">SUPRAWR</div>
-            <div className="sidebar-brand-tagline">
-              Tools for the Supra blockchain
-            </div>
+            <div className="sidebar-brand-tagline">Tools for the Supra blockchain</div>
           </div>
 
-          {/* RANK TAG RIGHT UNDER TAGLINE */}
+          {/* RANK TAG */}
           {holderRank && (
             <button
               type="button"
@@ -228,9 +197,8 @@ export default function Home() {
             </button>
           )}
 
-          {/* COINS, BALANCES */}
+          {/* BALANCES SECTION */}
           <div className="sidebar-section">
-            {/* HEADER, REFRESH */}
             <div className="sidebar-section-header balances-inside">
               <div className="sidebar-section-label">Balances</div>
               <button
@@ -244,27 +212,23 @@ export default function Home() {
               </button>
             </div>
 
-            {/* $SUPRA */}
+            {/* SUPRA */}
             {supraBalanceDisplay && (
               <div className="sidebar-balance-line">
                 <span className="sidebar-balance-line-label">$SUPRA</span>
                 <span className="sidebar-balance-line-right">
-                  {formatCompactBalance(
-                    parseFloat(supraBalanceDisplay || "0")
-                  )}
+                  {formatCompactBalance(parseFloat(supraBalanceDisplay || "0"))}
                   {supraNativeUsdDisplay && ` (~$${supraNativeUsdDisplay})`}
                 </span>
               </div>
             )}
 
-            {/* $SUPRAWR (same layout as SUPRA, no USD) */}
+            {/* SUPRAWR */}
             {supraWrBalanceDisplay && (
               <div className="sidebar-balance-line">
                 <span className="sidebar-balance-line-label">$SUPRAWR</span>
                 <span className="sidebar-balance-line-right">
-                  {formatCompactBalance(
-                    parseFloat(supraWrBalanceDisplay || "0")
-                  )}
+                  {formatCompactBalance(parseFloat(supraWrBalanceDisplay || "0"))}
                 </span>
               </div>
             )}
@@ -315,55 +279,22 @@ export default function Home() {
           </div>
         </div>
 
+        {/* SOCIAL LINKS */}
         <div className="sidebar-social">
-          <a
-            href="https://x.com/SuprawrToken"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="social-icon"
-          >
-            <svg
-              stroke="currentColor"
-              fill="currentColor"
-              strokeWidth="0"
-              viewBox="0 0 24 24"
-              height="24"
-              width="24"
-            >
+          <a href="https://x.com/SuprawrToken" target="_blank" rel="noopener noreferrer" className="social-icon">
+            <svg stroke="currentColor" fill="currentColor" strokeWidth="0" viewBox="0 0 24 24" height="24" width="24">
               <path d="M10.4883 14.651L15.25 21H22.25L14.3917 10.5223L20.9308 3H18.2808L13.1643 8.88578L8.75 3H1.75L9.26086 13.0145L2.31915 21H4.96917L10.4883 14.651ZM16.25 19L5.75 5H7.75L18.25 19H16.25Z"></path>
             </svg>
           </a>
 
-          <a
-            href="https://t.me/SUPRAWRportal"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="social-icon"
-          >
-            <svg
-              stroke="currentColor"
-              fill="currentColor"
-              strokeWidth="0"
-              viewBox="0 0 256 256"
-              height="24"
-              width="24"
-            >
+          <a href="https://t.me/SUPRAWRportal" target="_blank" rel="noopener noreferrer" className="social-icon">
+            <svg stroke="currentColor" fill="currentColor" strokeWidth="0" viewBox="0 0 256 256" height="24" width="24">
               <path d="M228.88,26.19a9,9,0,0,0-9.16-1.57L17.06,103.93a14.22,14.22,0,0,0,2.43,27.21L72,141.45V200a15.92,15.92,0,0,0,10,14.83,15.91,15.91,0,0,0,17.51-3.73l25.32-26.26L165,220a15.88,15.88,0,0,0,10.51,4,16.3,16.3,0,0,0,5-.79,15.85,15.85,0,0,0,10.67-11.63L231.77,35A9,9,0,0,0,228.88,26.19Zm-61.14,36L78.15,126.35l-49.6-9.73ZM88,200V152.52l24.79,21.74Zm87.53,8L92.85,135.5l119-85.29Z"></path>
             </svg>
           </a>
 
-          <a
-            href="https://suprawr.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="social-icon"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              height="24"
-              width="24"
-              fill="currentColor"
-            >
+          <a href="https://suprawr.com" target="_blank" rel="noopener noreferrer" className="social-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" height="24" width="24" fill="currentColor">
               <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm7.93 9H17c-.22-2.06-1-3.92-2.15-5.39A8.03 8.03 0 0 1 19.93 11zM12 4c1.62 0 3.2.56 4.47 1.6C15.09 7.26 14.22 9.5 14 12h-4c-.22 2.5-1.09 4.74-2.47 6.4A7.96 7.96 0 0 1 12 4zM4.07 13H7c.22 2.06 1 3.92 2.15 5.39A8.03 8.03 0 0 1 4.07 13zM12 20a7.96 7.96 0 0 1-4.47-1.6C8.91 16.74 9.78 14.5 10 12h4c.22 2.5 1.09 4.74 2.47 6.4A7.96 7.96 0 0 1 12 20zm4.85-1.61C17 16.92 17.78 15.06 18 13h2.93a8.03 8.03 0 0 1-4.08 5.39z" />
             </svg>
           </a>
@@ -376,11 +307,8 @@ export default function Home() {
         </div>
       </aside>
 
-      {/* MOBILE SIDEBAR OVERLAY (click to close) */}
-      {isSidebarOpen && (
-        <div className="sidebar-overlay" onClick={closeSidebar} />
-      )}
-
+      {/* MOBILE SIDEBAR OVERLAY */}
+      {isSidebarOpen && <div className="sidebar-overlay" onClick={closeSidebar} />}
       {/* MAIN DASHBOARD AREA */}
       <main className="dashboard-main">
         <TopRightBar onToggleSidebar={toggleSidebar} />
@@ -402,14 +330,24 @@ export default function Home() {
         </header>
 
         <section className="dashboard-grid">
+          {/* LEFT COLUMN */}
           <div className="dashboard-main-column">
+            {/* ============= GAS TRACKER PANEL ============= */}
             <section className="dashboard-panel">
               <div className="dashboard-panel-body">
                 <GasFeeStats />
               </div>
             </section>
+
+            {/* ============= GAS HISTORY CHART PANEL ============= */}
+            <section className="dashboard-panel">
+              <div className="dashboard-panel-body">
+                <GasHistoryChartWrapper />
+              </div>
+            </section>
           </div>
 
+          {/* RIGHT SIDEBAR PANELS */}
           <div className="dashboard-side-column">
             <section className="dashboard-panel">
               <div className="dashboard-panel-header">
@@ -420,8 +358,7 @@ export default function Home() {
               </div>
               <div className="dashboard-panel-body dashboard-panel-placeholder">
                 <p>
-                  Placeholder for a calendar-style heatmap showing wallet
-                  spikes.
+                  Placeholder for a calendar-style heatmap showing wallet spikes.
                 </p>
               </div>
             </section>
@@ -469,7 +406,7 @@ export default function Home() {
         </button>
       </nav>
 
-      {/* RANK MODAL (uses data from tierUpdate / refresh) */}
+      {/* RANK MODAL */}
       {showRankModal && holderRank && supraWrBalanceDisplay && (
         <div
           className="modal-001-overlay tier-modal-overlay"
@@ -496,53 +433,28 @@ export default function Home() {
                 Your rank{" "}
                 <span className="tier-current-name">{holderRank}</span>{" "}
                 <span className="tier-current-balance">
-                  (
-                  {formatCompactBalance(
-                    parseFloat(supraWrBalanceDisplay || "0")
-                  )}{" "}
-                  $SUPRAWR)
+                  ({formatCompactBalance(parseFloat(supraWrBalanceDisplay || "0"))} $SUPRAWR)
                 </span>
               </div>
 
               <ul className="tier-list">
-                <li
-                  className={`tier-list-item ${
-                    holderRank === "Hatchling" ? "current-tier" : ""
-                  }`}
-                >
+                <li className={`tier-list-item ${holderRank === "Hatchling" ? "current-tier" : ""}`}>
                   Hatchling <span className="tier-range">1 – 999</span>
                 </li>
 
-                <li
-                  className={`tier-list-item ${
-                    holderRank === "Scaleborn" ? "current-tier" : ""
-                  }`}
-                >
+                <li className={`tier-list-item ${holderRank === "Scaleborn" ? "current-tier" : ""}`}>
                   Scaleborn <span className="tier-range">1k – 99k</span>
                 </li>
 
-                <li
-                  className={`tier-list-item ${
-                    holderRank === "Primal Guardian" ? "current-tier" : ""
-                  }`}
-                >
-                  Primal Guardian{" "}
-                  <span className="tier-range">100k – 999k</span>
+                <li className={`tier-list-item ${holderRank === "Primal Guardian" ? "current-tier" : ""}`}>
+                  Primal Guardian <span className="tier-range">100k – 999k</span>
                 </li>
 
-                <li
-                  className={`tier-list-item ${
-                    holderRank === "Primal Titan" ? "current-tier" : ""
-                  }`}
-                >
+                <li className={`tier-list-item ${holderRank === "Primal Titan" ? "current-tier" : ""}`}>
                   Primal Titan <span className="tier-range">1M – 9.9M</span>
                 </li>
 
-                <li
-                  className={`tier-list-item ${
-                    holderRank === "Primal Master" ? "current-tier" : ""
-                  }`}
-                >
+                <li className={`tier-list-item ${holderRank === "Primal Master" ? "current-tier" : ""}`}>
                   Primal Master <span className="tier-range">10M+</span>
                 </li>
               </ul>
@@ -551,5 +463,33 @@ export default function Home() {
         </div>
       )}
     </div>
+  );
+}
+
+/* =====================================================
+   GAS HISTORY CHART WRAPPER (NEW)
+   ===================================================== */
+
+function GasHistoryChartWrapper() {
+  const [history, setHistory] = React.useState([]);
+  const [cumulativeHistory, setCumulativeHistory] = React.useState([]);
+
+  React.useEffect(() => {
+    function handleGasData(e) {
+      const { history, cumulative } = e.detail || {};
+      if (history) setHistory(history);
+      if (cumulative) setCumulativeHistory(cumulative);
+    }
+
+    window.addEventListener("suprawr:gasData", handleGasData);
+    return () =>
+      window.removeEventListener("suprawr:gasData", handleGasData);
+  }, []);
+
+  return (
+    <GasHistoryChart
+      history={history}
+      cumulativeHistory={cumulativeHistory}
+    />
   );
 }
