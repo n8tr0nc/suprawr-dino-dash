@@ -889,7 +889,7 @@ export default function GasFeeStats() {
                   This tool tracks gas spent on <strong>SUPRA coin transactions only</strong> for your connected wallet, using Supra’s public RPC.
                 </p>
                 <p>
-                  It works through the <code>coin_transactions</code> endpoint, which is the only RPC endpoint that includes gas usage details. <strong>The only place full gas-fee data exists is inside the complete transaction detail, which Supra RPC currently does not expose through any public “fetch by hash” endpoint.</strong> Because of this, <strong>contract calls, burns, some swaps, NFTs, and other non-coin actions cannot be included.</strong>
+                  It works through the <code>coin_transactions</code> endpoint, which is the only RPC endpoint that includes gas usage details. <strong>The only place full gas-fee data exists is inside the complete transaction detail, which Supra RPC currently does not expose through any public “fetch by hash” endpoint.</strong> Because of this, <strong>contract calls, burns, swaps, NFTs, and other non-coin actions cannot be included.</strong>
                 </p>
                 <p>
                   <strong>There is currently no way to compute a wallet’s total gas fees across ALL transaction types using only the public Supra RPC.</strong>
