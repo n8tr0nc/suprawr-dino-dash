@@ -886,28 +886,16 @@ export default function GasFeeStats() {
 
               <div className="modal-001-body gas-info-body">
                 <p>
-                  This tool estimates gas spent on{" "}
-                  <strong>coin ($SUPRA) transactions only</strong> for your
-                  connected wallet using Supra’s public RPC.
+                  This tool tracks gas spent on <strong>SUPRA coin transactions only</strong> for your connected wallet, using Supra’s public RPC.
                 </p>
                 <p>
-                  It uses the <code>coin_transactions</code> endpoint and may
-                  exclude contract-only or system-level activity shown in some
-                  explorers. When <code>gas_used</code> is unavailable, fees are
-                  estimated using <code>max_gas_amount × gas_unit_price</code>,
-                  which can slightly overestimate totals.
+                  It works through the <code>coin_transactions</code> endpoint, which is the only RPC endpoint that includes gas usage details. <strong>The only place full gas-fee data exists is inside the complete transaction detail, which Supra RPC currently does not expose through any public “fetch by hash” endpoint.</strong> Because of this, <strong>contract calls, burns, some swaps, NFTs, and other non-coin actions cannot be included.</strong>
                 </p>
                 <p>
-                  To improve performance, the tool{" "}
-                  <strong>
-                    automatically scans and calculates when you connect your
-                    wallet
-                  </strong>
-                  , then <strong>caches the results for 24 hours</strong>. If
-                  you reconnect within that window, the cached results are shown
-                  instantly. After 24 hours, the tool will automatically run a
-                  fresh scan. You can manually force a recalculation at any time
-                  using <strong>Recalculate Gas Fees</strong>.
+                  <strong>There is currently no way to compute a wallet’s total gas fees across ALL transaction types using only the public Supra RPC.</strong>
+                </p>
+                <p>
+                  To improve performance, the tool <strong>automatically scans and calculates when you connect your wallet</strong>, then <strong>caches results for 24 hours</strong>. Reconnecting within that window shows cached values instantly. After 24 hours, a fresh scan runs automatically. You can also manually force a new scan using <strong> Recalculate Gas Fees</strong>.
                 </p>
               </div>
             </div>
