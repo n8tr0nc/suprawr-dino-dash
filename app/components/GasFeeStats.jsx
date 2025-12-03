@@ -1,6 +1,11 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useState,
+  useRef, // ⬅ added
+} from "react";
 import { RPC_BASE_URL, fetchSupraWrAccess } from "./TokenGate";
 
 // -------------------- BALANCE CONVERSION --------------------
@@ -365,7 +370,7 @@ async function fetchLifetimeGasStats(
 
 // -------------------- LOCAL CACHE HELPERS --------------------
 
-const GAS_CACHE_PREFIX = "suprawr_gas_cache_v1:";
+const GAS_CACHE_PREFIX = "suprawr_gas_cache_v1:"
 const MAX_CACHE_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours TTL
 
 function getGasCacheKey(address) {
@@ -438,6 +443,9 @@ export default function GasFeeStats() {
 
   const [showInfo, setShowInfo] = useState(false);
 
+  // run id to cancel in-flight calculations on disconnect / wallet change
+  const calcRunIdRef = useRef(0);
+
   const runAccessCheck = useCallback(async (addr) => {
     if (!addr) {
       setHasAccess(null);
@@ -477,6 +485,8 @@ export default function GasFeeStats() {
     async (addr) => {
       if (!addr) return;
 
+      const runId = ++calcRunIdRef.current;
+
       try {
         setCalculating(true);
         setError("");
@@ -493,12 +503,19 @@ export default function GasFeeStats() {
           avgSupra,
           monthlyAvgSupra,
         } = await fetchLifetimeGasStats(addr, 100, 5000, ({ page }) => {
+          // only update progress if this run is still the latest
+          if (calcRunIdRef.current !== runId) return;
           setPagesProcessed(page);
           setProgressPercent((prev) => {
             const next = prev + 4;
             return next >= 95 ? 95 : next;
           });
         });
+
+        // If a newer run/ disconnect happened, drop results
+        if (calcRunIdRef.current !== runId) {
+          return;
+        }
 
         setPagesProcessed((prev) => (prev === 0 ? 1 : prev));
         setProgressPercent(100);
@@ -535,20 +552,16 @@ export default function GasFeeStats() {
       if (!addr) return;
       setError("");
 
-      // 1) Access gate
       const allowed = await runAccessCheck(addr);
       if (!allowed) return;
 
-      // 2) Load cache
       const cache = loadGasCache(addr);
 
-      // 2a) First-time wallet (no cache): ALWAYS do a full scan once
       if (!cache) {
         await runGasCalculationWithCache(addr);
         return;
       }
 
-      // 2b) Hydrate from cache into UI
       setTxCount(cache.totalTx || 0);
       setTotalSupra(cache.totalSupra || null);
       setAvgSupra(cache.avgSupra || null);
@@ -556,17 +569,14 @@ export default function GasFeeStats() {
       setPagesProcessed(0);
       setProgressPercent(0);
 
-      // 3) TTL check – only recalc if cache is "old"
       const updatedAtMs =
         typeof cache.updatedAtMs === "number" ? cache.updatedAtMs : 0;
       const cacheAgeMs = Date.now() - updatedAtMs;
 
       if (cacheAgeMs <= MAX_CACHE_AGE_MS) {
-        // Cache is "fresh enough" – keep using it
         return;
       }
 
-      // Cache is old → run a fresh full scan
       setTxCount(0);
       setTotalSupra(null);
       setAvgSupra(null);
@@ -601,7 +611,6 @@ export default function GasFeeStats() {
             const addr = existing[0];
             setConnected(true);
             setAddress(addr);
-            // run access + cache + calc for already-connected wallet
             runAccessAndMaybeCalc(addr);
           }
         } catch {
@@ -671,6 +680,8 @@ export default function GasFeeStats() {
       setProgressPercent(0);
 
       if (!isConnected || !newAddr) {
+        // cancel any in-flight calc on external disconnect
+        calcRunIdRef.current++;
         setHasAccess(null);
         setSupraWrBalanceDisplay(null);
         setHolderRank(null);
@@ -690,7 +701,6 @@ export default function GasFeeStats() {
     async () => {
       setError("");
 
-      // If no provider, open Starkey site instead of doing nothing
       if (!provider) {
         if (typeof window !== "undefined") {
           window.open("https://starkey.app", "_blank");
@@ -698,7 +708,6 @@ export default function GasFeeStats() {
         return;
       }
 
-      // CONNECT FLOW
       if (!connected) {
         try {
           setConnecting(true);
@@ -728,7 +737,6 @@ export default function GasFeeStats() {
         return;
       }
 
-      // CALCULATION FLOW (manual button press)
       if (!address) {
         setError("No wallet address available. Please connect again.");
         return;
@@ -752,6 +760,9 @@ export default function GasFeeStats() {
   const handleDisconnect = useCallback(
     async () => {
       setError("");
+      // invalidate any in-flight calculations
+      calcRunIdRef.current++;
+
       await disconnectWallet(provider);
 
       broadcastWalletState("", false);
@@ -769,6 +780,9 @@ export default function GasFeeStats() {
       setPagesProcessed(0);
       setProgressPercent(0);
       setShowRankModal(false);
+      setCalculating(false);
+      setConnecting(false);
+      setCheckingAccess(false);
     },
     [provider]
   );
@@ -793,7 +807,6 @@ export default function GasFeeStats() {
         : "Connect Wallet"
       : "Disconnect Wallet";
 
-  // IMPORTANT: allow click when wallet not installed so we can open Starkey site
   const isWalletButtonDisabled =
     connecting || calculating || checkingAccess;
 
@@ -814,7 +827,6 @@ export default function GasFeeStats() {
       ? "Recalculate Gas Fees"
       : "Calculate Gas Fees";
 
-  // Same: don't disable just because wallet isn't installed
   const isButtonDisabled =
     connecting ||
     calculating ||
@@ -851,7 +863,6 @@ export default function GasFeeStats() {
           <span className="dashboard-panel-pill">Powered by Supra RPC</span>
         </div>
 
-        {/* INFO MODAL */}
         {showInfo && (
           <div
             className="modal-001-overlay gas-info-overlay"
@@ -903,7 +914,6 @@ export default function GasFeeStats() {
           </div>
         )}
 
-        {/* WALLET FIELD */}
         <div className="field-block">
           <label htmlFor="wallet" className="field-label">
             Connected Supra Wallet
@@ -919,7 +929,6 @@ export default function GasFeeStats() {
           />
         </div>
 
-        {/* MAIN BUTTON */}
         <button
           className="primary-button"
           onClick={handleAction}
@@ -929,7 +938,6 @@ export default function GasFeeStats() {
           {buttonLabel}
         </button>
 
-        {/* PROGRESS */}
         {calculating && (
           <div className="progress-wrapper">
             <div className="progress-label">

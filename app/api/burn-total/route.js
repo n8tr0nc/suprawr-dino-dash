@@ -3,173 +3,135 @@ import { NextResponse } from "next/server";
 const RPC_BASE_URL = "https://rpc-mainnet.supra.com";
 const PAGE_SIZE = 100;
 
-// Taken directly from the Supra RPC JSON you provided.
+// VERIFIED burn function from multiple wallets
 const BURN_FUNCTION =
   "0xa4a4a31116e114bf3c4f4728914e6b43db73279a4421b0768993e07248fe2234::atmos_pump::burn_token";
 
-// SUPRAWR fungible asset store that is debited on burn (from your tx JSON).
-const SUPRAWR_FA_STORE =
-  "0x4ec22340343c83be25f35b68f0686761ba24d9575a281f181a32fe6173c8702e";
+// VERIFIED SUPRAWR FA resource ID (first burn function argument)
+const SUPRAWR_RESOURCE_ID =
+  "0x82ed1f483b5fc4ad105cef5330e480136d58156c30dc70cd2b9c342981997cee";
 
-// On-chain SUPRAWR decimals (from your SupraScan example: 5000 → 5000000000000).
+// SUPRAWR uses 6 decimals
 const SUPRAWR_DECIMALS = 6n;
 const SUPRAWR_SCALE = 10n ** SUPRAWR_DECIMALS;
 
-// Display with up to 6 decimals.
-const DISPLAY_DECIMALS = 6n;
+// Display with 2 decimals (required)
+const DISPLAY_DECIMALS = 2n;
 const DISPLAY_SCALE = 10n ** DISPLAY_DECIMALS;
 
-// Fetch a single page of v3 account transactions
+
+// Fetch one page of transactions
 async function fetchTransactionsPage(address, start) {
   const params = new URLSearchParams();
-  params.set("count", String(PAGE_SIZE));
-  params.set("ascending", "true"); // v3: oldest → newest
+  params.set("count", PAGE_SIZE.toString());
+  params.set("ascending", "true"); // oldest → newest
 
-  if (typeof start === "number" && start >= 0) {
-    params.set("start", String(start));
-  }
+  if (start > 0) params.set("start", String(start));
 
-  const url = `${RPC_BASE_URL}/rpc/v3/accounts/${address}/transactions?${params.toString()}`;
+  const url = `${RPC_BASE_URL}/rpc/v3/accounts/${address}/transactions?${params}`;
 
   const res = await fetch(url, {
     method: "GET",
-    headers: {
-      Accept: "application/json",
-    },
+    headers: { Accept: "application/json" },
     cache: "no-store",
   });
 
   if (!res.ok) {
-    throw new Error(
-      `Supra v3 transactions request failed: ${res.status} ${res.statusText}`
-    );
+    throw new Error(`RPC error ${res.status}`);
   }
 
   const data = await res.json();
-
-  // v3 docs: this endpoint returns a bare JSON array of Transaction.
   if (!Array.isArray(data)) {
-    throw new Error(
-      "Unexpected Supra v3 transactions response shape (expected array)"
-    );
+    throw new Error("Unexpected RPC response shape");
   }
 
   return data;
 }
 
-// Fetch ALL transactions for the account via pagination.
-// v3 semantics: `start` is starting sequence number (inclusive).
+
+// Fetch ALL transactions via pagination
 async function fetchAllTransactions(address) {
   const all = [];
   let start = 0;
 
   while (true) {
     const page = await fetchTransactionsPage(address, start);
-    if (!page.length) {
-      break;
-    }
+    if (page.length === 0) break;
 
     all.push(...page);
 
-    if (page.length < PAGE_SIZE) {
-      // Last page reached
-      break;
-    }
+    if (page.length < PAGE_SIZE) break;
 
-    // Next page starts after the last sequence “window”.
     start += PAGE_SIZE;
   }
 
   return all;
 }
 
-// Extract raw burn amount (BigInt) from a single transaction.
-//
-// This matches the Supra RPC / SupraScan JSON you provided:
-// - payload.Move.function === BURN_FUNCTION
-// - output.Move.events[] contains a
-//   type "0x1::fungible_asset::Withdraw"
-//   with data.store === SUPRAWR_FA_STORE
-//   and data.amount = burned SUPRAWR in raw units.
-function extractBurnAmountFromTransaction(tx) {
-  if (!tx || !tx.payload || !tx.payload.Move) return 0n;
 
+// Extract burn amount from transaction
+function extractBurnAmountFromTransaction(tx, walletAddress) {
+  if (!tx?.payload?.Move) return 0n;
   const payload = tx.payload.Move;
 
+  // Must be the burn function
   if (
     payload.type !== "entry_function_payload" ||
-    typeof payload.function !== "string" ||
     payload.function !== BURN_FUNCTION
   ) {
     return 0n;
   }
 
-  const events =
-    tx.output &&
-    tx.output.Move &&
-    Array.isArray(tx.output.Move.events)
-      ? tx.output.Move.events
-      : [];
+  // Verify this is a SUPRAWR burn (Option C)
+  const arg0 = payload.arguments?.[0];
+  if (arg0 !== SUPRAWR_RESOURCE_ID) return 0n;
+
+  // Verify sender belongs to this wallet
+  const sender = tx.header?.sender?.Move;
+  if (!sender || sender.toLowerCase() !== walletAddress.toLowerCase()) {
+    return 0n;
+  }
+
+  // Find Withdraw events — store doesn't matter
+  const events = tx.output?.Move?.events || [];
+  let total = 0n;
 
   for (const ev of events) {
-    if (
-      ev &&
-      ev.type === "0x1::fungible_asset::Withdraw" &&
-      ev.data &&
-      ev.data.store === SUPRAWR_FA_STORE &&
-      typeof ev.data.amount === "string"
-    ) {
+    if (ev.type === "0x1::fungible_asset::Withdraw") {
       try {
-        return BigInt(ev.data.amount);
-      } catch {
-        return 0n;
-      }
+        const amt = BigInt(ev.data?.amount || "0");
+        if (amt > 0n) total += amt;
+      } catch {}
     }
   }
 
-  return 0n;
+  return total;
 }
 
-// Format a raw SUPRAWR amount into a string with up to 6 decimals,
-// based on 9 on-chain decimals.
+
+// Format amount using 2 decimals
 function formatSupraWrAmount(raw) {
-  const value = typeof raw === "bigint" ? raw : BigInt(raw || 0);
+  const v = BigInt(raw);
 
-  if (value === 0n) {
-    return "0";
-  }
+  if (v === 0n) return "0.00";
 
-  const whole = value / SUPRAWR_SCALE;
-  const frac = value % SUPRAWR_SCALE;
+  const whole = v / SUPRAWR_SCALE;
+  const frac = v % SUPRAWR_SCALE;
 
-  if (frac === 0n) {
-    return whole.toString();
-  }
-
-  // Scale fractional part down to DISPLAY_DECIMALS (6) places.
-  const scaledFrac = (frac * DISPLAY_SCALE) / SUPRAWR_SCALE;
-
-  let fracStr = scaledFrac.toString().padStart(Number(DISPLAY_DECIMALS), "0");
-
-  // Trim trailing zeros from displayed fraction.
-  fracStr = fracStr.replace(/0+$/, "");
-  if (fracStr.length === 0) {
-    return whole.toString();
-  }
+  const scaled = (frac * DISPLAY_SCALE) / SUPRAWR_SCALE;
+  let fracStr = scaled.toString().padStart(Number(DISPLAY_DECIMALS), "0");
 
   return `${whole.toString()}.${fracStr}`;
 }
 
-// GET /api/burn-total?address=0x...
+
+// API route
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
-  const address = searchParams.get("address")?.trim();
+  const address = searchParams.get("address");
 
   if (!address) {
-    return NextResponse.json(
-      { error: "Missing 'address' query parameter" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Missing address" }, { status: 400 });
   }
 
   try {
@@ -177,21 +139,21 @@ export async function GET(request) {
 
     let totalRaw = 0n;
     for (const tx of allTxs) {
-      totalRaw += extractBurnAmountFromTransaction(tx);
+      totalRaw += extractBurnAmountFromTransaction(tx, address);
     }
 
-    const totalFormatted = formatSupraWrAmount(totalRaw);
+    const formatted = formatSupraWrAmount(totalRaw);
 
     return NextResponse.json({
       address,
-      burn_raw: totalRaw.toString(),      // raw on-chain integer
-      burn_suprawr: totalFormatted,       // human-readable, up to 6 decimals
-      total: totalFormatted,              // alias for compatibility
-      decimals: Number(SUPRAWR_DECIMALS), // 9 on-chain
-      display_decimals: Number(DISPLAY_DECIMALS), // 6 shown
+      burn_raw: totalRaw.toString(),
+      burn_suprawr: formatted,
+      total: formatted,
+      decimals: Number(SUPRAWR_DECIMALS),
+      display_decimals: Number(DISPLAY_DECIMALS),
     });
   } catch (err) {
-    console.error("Error computing burn total:", err);
+    console.error("burn-total error:", err);
     return NextResponse.json(
       { error: "Failed to compute burn total" },
       { status: 500 }

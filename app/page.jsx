@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import TopRightBar from "./components/TopRightBar";
 import GasFeeStats from "./components/GasFeeStats";
 
@@ -56,6 +56,9 @@ export default function Home() {
   const [currentAddress, setCurrentAddress] = useState(null);
   const [refreshingBalances, setRefreshingBalances] = useState(false);
 
+  // run id so disconnect cancels any sidebar refresh in progress
+  const refreshRunIdRef = useRef(0);
+
   const toggleSidebar = () => {
     setIsSidebarOpen((prev) => !prev);
   };
@@ -99,7 +102,6 @@ export default function Home() {
             );
             if (res.ok) {
               const data = await res.json();
-              // route.js returns: { address, burn_raw, burn_suprawr }
               if (data && typeof data.burn_suprawr === "string") {
                 setBurnTotal(data.burn_suprawr);
               } else {
@@ -133,6 +135,8 @@ export default function Home() {
           }
         })();
       } else {
+        // invalidate any ongoing refresh when disconnect fires
+        refreshRunIdRef.current++;
         setCurrentAddress(null);
         setSupraBalanceDisplay(null);
         setSupraWrBalanceDisplay(null);
@@ -178,6 +182,8 @@ export default function Home() {
       return;
     }
 
+    const runId = ++refreshRunIdRef.current;
+
     try {
       setRefreshingBalances(true);
       setBurnLoading(true);
@@ -194,6 +200,11 @@ export default function Home() {
           `/api/burn-total?address=${encodeURIComponent(currentAddress)}`
         ),
       ]);
+
+      // if disconnect happened while these were in flight, drop results
+      if (refreshRunIdRef.current !== runId) {
+        return;
+      }
 
       // SUPRA native balance
       if (balRes.ok) {
@@ -249,7 +260,9 @@ export default function Home() {
   // Flags for skeletons
   const supraLoading =
     !!currentAddress &&
-    (refreshingBalances || supraBalanceDisplay === null || supraUsdPrice === null);
+    (refreshingBalances ||
+      supraBalanceDisplay === null ||
+      supraUsdPrice === null);
 
   const supraWrLoading =
     !!currentAddress &&
@@ -501,36 +514,12 @@ export default function Home() {
 
           <div className="dashboard-side-column">
             <section className="dashboard-panel">
-              <a href="https://suprawr.com" target="_blank" rel="noopener noreferrer">
-                <img src="./poster-airdrop-004.webp" alt="Graduation Airdrop Poster" class="poster-001" />
-              </a>
-              {/*<div className="dashboard-panel-header">
-                <span className="dashboard-panel-title">ACTIVITY HEATMAP</span>
-                <span className="dashboard-panel-pill dashboard-pill-soon">
-                  Coming soon
-                </span>
-              </div>
-              <div className="dashboard-panel-body dashboard-panel-placeholder">
-                <p>
-                  Placeholder for a calendar-style heatmap showing wallet
-                  spikes.
-                </p>
-              </div>*/}
+              <img
+                src="./poster-airdrop-004.webp"
+                alt="Graduation Airdrop Poster"
+                className="poster-001"
+              />
             </section>
-
-            {/*<section className="dashboard-panel">
-              <div className="dashboard-panel-header">
-                <span className="dashboard-panel-title">HOLDER INSIGHTS</span>
-                <span className="dashboard-panel-pill dashboard-pill-soon">
-                  Coming soon
-                </span>
-              </div>
-              <div className="dashboard-panel-body dashboard-panel-placeholder">
-                <p>
-                  Planned metrics for RAWRpack holder tiers + comparisons.
-                </p>
-              </div>
-            </section>*/}
           </div>
         </section>
       </main>
