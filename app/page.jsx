@@ -501,7 +501,9 @@ export default function Home() {
 
           <div className="dashboard-side-column">
             <section className="dashboard-panel">
-              <img src="./poster-airdrop-004.webp" alt="Graduation Airdrop Poster" class="poster-001" />
+              <a href="https://suprawr.com" target="_blank" rel="noopener noreferrer">
+                <img src="./poster-airdrop-004.webp" alt="Graduation Airdrop Poster" class="poster-001" />
+              </a>
               {/*<div className="dashboard-panel-header">
                 <span className="dashboard-panel-title">ACTIVITY HEATMAP</span>
                 <span className="dashboard-panel-pill dashboard-pill-soon">
