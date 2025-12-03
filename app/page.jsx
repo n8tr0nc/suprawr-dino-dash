@@ -44,6 +44,11 @@ export default function Home() {
   const [holderRank, setHolderRank] = useState(null);
   const [supraWrBalanceDisplay, setSupraWrBalanceDisplay] = useState(null);
   const [supraBalanceDisplay, setSupraBalanceDisplay] = useState(null);
+
+  // Burn total + loading flag
+  const [burnTotal, setBurnTotal] = useState(null); // null = not loaded yet
+  const [burnLoading, setBurnLoading] = useState(false);
+
   const [showRankModal, setShowRankModal] = useState(false);
   const [supraUsdPrice, setSupraUsdPrice] = useState(null);
 
@@ -85,6 +90,32 @@ export default function Home() {
       if (connected && address) {
         setCurrentAddress(address);
 
+        // Fetch burned SUPRAWR total
+        (async () => {
+          setBurnLoading(true);
+          try {
+            const res = await fetch(
+              `/api/burn-total?address=${encodeURIComponent(address)}`
+            );
+            if (res.ok) {
+              const data = await res.json();
+              // route.js returns: { address, burn_raw, burn_suprawr }
+              if (data && typeof data.burn_suprawr === "string") {
+                setBurnTotal(data.burn_suprawr);
+              } else {
+                setBurnTotal("0");
+              }
+            } else {
+              setBurnTotal("0");
+            }
+          } catch (err) {
+            console.error("Failed to fetch burn total:", err);
+            setBurnTotal("0");
+          } finally {
+            setBurnLoading(false);
+          }
+        })();
+
         // On every connect, fetch a fresh, uncached SUPRA USD price
         (async () => {
           try {
@@ -104,8 +135,10 @@ export default function Home() {
       } else {
         setCurrentAddress(null);
         setSupraBalanceDisplay(null);
+        setSupraWrBalanceDisplay(null);
         setSupraUsdPrice(null);
-        // Don't clear SUPRAWR here; TopRightBar / refresh can repopulate.
+        setBurnTotal(null);
+        setBurnLoading(false);
       }
     }
 
@@ -138,7 +171,7 @@ export default function Home() {
     };
   }, []);
 
-  // Manual refresh for SUPRA balance + price + SUPRAWR balance
+  // Manual refresh for SUPRA balance + price + SUPRAWR balance + burn total
   const handleRefreshBalances = async () => {
     if (!currentAddress) {
       console.warn("No connected wallet address; cannot refresh balances.");
@@ -147,14 +180,18 @@ export default function Home() {
 
     try {
       setRefreshingBalances(true);
+      setBurnLoading(true);
 
-      const [balRes, priceRes, suprawrRes] = await Promise.all([
+      const [balRes, priceRes, suprawrRes, burnRes] = await Promise.all([
         fetch(
           `/api/supra-balance?address=${encodeURIComponent(currentAddress)}`
         ),
         fetch(`/api/supra-price?t=${Date.now()}`),
         fetch(
           `/api/suprawr-balance?address=${encodeURIComponent(currentAddress)}`
+        ),
+        fetch(
+          `/api/burn-total?address=${encodeURIComponent(currentAddress)}`
         ),
       ]);
 
@@ -183,10 +220,24 @@ export default function Home() {
           setHolderRank(newRank);
         }
       }
+
+      // Burn total
+      if (burnRes.ok) {
+        const burnData = await burnRes.json();
+        if (burnData && typeof burnData.burn_suprawr === "string") {
+          setBurnTotal(burnData.burn_suprawr);
+        } else {
+          setBurnTotal("0");
+        }
+      } else {
+        setBurnTotal("0");
+      }
     } catch (err) {
       console.error("Failed to refresh balances:", err);
+      setBurnTotal("0");
     } finally {
       setRefreshingBalances(false);
+      setBurnLoading(false);
     }
   };
 
@@ -194,6 +245,19 @@ export default function Home() {
     supraBalanceDisplay && supraUsdPrice != null
       ? (parseFloat(supraBalanceDisplay) * supraUsdPrice).toFixed(2)
       : null;
+
+  // Flags for skeletons
+  const supraLoading =
+    !!currentAddress &&
+    (refreshingBalances || supraBalanceDisplay === null || supraUsdPrice === null);
+
+  const supraWrLoading =
+    !!currentAddress &&
+    (refreshingBalances || supraWrBalanceDisplay === null);
+
+  const burnLineLoading =
+    !!currentAddress &&
+    (refreshingBalances || burnLoading || burnTotal === null);
 
   return (
     <div className={`dashboard-shell ${isSidebarOpen ? "sidebar-open" : ""}`}>
@@ -245,25 +309,50 @@ export default function Home() {
             </div>
 
             {/* $SUPRA */}
-            {supraBalanceDisplay && (
+            {currentAddress && (
               <div className="sidebar-balance-line">
                 <span className="sidebar-balance-line-label">$SUPRA</span>
                 <span className="sidebar-balance-line-right">
-                  {formatCompactBalance(
-                    parseFloat(supraBalanceDisplay || "0")
+                  {supraLoading ? (
+                    <span className="balance-skeleton" />
+                  ) : (
+                    <>
+                      {formatCompactBalance(
+                        parseFloat(supraBalanceDisplay || "0")
+                      )}
+                      {supraNativeUsdDisplay &&
+                        ` (~$${supraNativeUsdDisplay})`}
+                    </>
                   )}
-                  {supraNativeUsdDisplay && ` (~$${supraNativeUsdDisplay})`}
                 </span>
               </div>
             )}
 
-            {/* $SUPRAWR (same layout as SUPRA, no USD) */}
-            {supraWrBalanceDisplay && (
+            {/* $SUPRAWR */}
+            {currentAddress && (
               <div className="sidebar-balance-line">
                 <span className="sidebar-balance-line-label">$SUPRAWR</span>
                 <span className="sidebar-balance-line-right">
-                  {formatCompactBalance(
-                    parseFloat(supraWrBalanceDisplay || "0")
+                  {supraWrLoading ? (
+                    <span className="balance-skeleton" />
+                  ) : (
+                    formatCompactBalance(
+                      parseFloat(supraWrBalanceDisplay || "0")
+                    )
+                  )}
+                </span>
+              </div>
+            )}
+
+            {/* Burn total */}
+            {currentAddress && (
+              <div className="sidebar-balance-line">
+                <span className="sidebar-balance-line-label">Burned</span>
+                <span className="sidebar-balance-line-right">
+                  {burnLineLoading ? (
+                    <span className="balance-skeleton" />
+                  ) : (
+                    formatCompactBalance(parseFloat(burnTotal || "0"))
                   )}
                 </span>
               </div>
@@ -412,7 +501,8 @@ export default function Home() {
 
           <div className="dashboard-side-column">
             <section className="dashboard-panel">
-              <div className="dashboard-panel-header">
+              <img src="./poster-airdrop-004.webp" alt="Graduation Airdrop Poster" class="poster-001" />
+              {/*<div className="dashboard-panel-header">
                 <span className="dashboard-panel-title">ACTIVITY HEATMAP</span>
                 <span className="dashboard-panel-pill dashboard-pill-soon">
                   Coming soon
@@ -423,10 +513,10 @@ export default function Home() {
                   Placeholder for a calendar-style heatmap showing wallet
                   spikes.
                 </p>
-              </div>
+              </div>*/}
             </section>
 
-            <section className="dashboard-panel">
+            {/*<section className="dashboard-panel">
               <div className="dashboard-panel-header">
                 <span className="dashboard-panel-title">HOLDER INSIGHTS</span>
                 <span className="dashboard-panel-pill dashboard-pill-soon">
@@ -438,7 +528,7 @@ export default function Home() {
                   Planned metrics for RAWRpack holder tiers + comparisons.
                 </p>
               </div>
-            </section>
+            </section>*/}
           </div>
         </section>
       </main>
