@@ -1063,7 +1063,7 @@ export default function GasFeeStats() {
             i
           </button>
 
-          <span className="dashboard-panel-pill">Powered by Supra RPC</span>
+          <span className="dashboard-panel-pill">Powered by Supra RPC & Rift Energy</span>
         </div>
 
         {showInfo && (
