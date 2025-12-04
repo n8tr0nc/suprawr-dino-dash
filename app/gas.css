@@ -596,18 +596,18 @@
 }
 
 .progress-label {
-  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0;
+  font-weight: 600;
+  color: #feeecd;
   margin-bottom: 0.3rem;
-  color: #30d630;
-  opacity: 0.9;
 }
 
 .progress-bar {
   width: 100%;
   height: 8px;
   border-radius: 999px;
-  background: #222222;
-  border: 1px solid #30d630;
+  background: #111111;
   overflow: hidden;
 }
 
@@ -1064,4 +1064,63 @@ button.sidebar-rank:hover {
   width: 100%;
   height: auto;
   border-radius: 2px;
+}
+
+/* =========================
+   RIFT ENERGY RECHARGE
+   ========================= */
+
+.rift-energy-wrapper {
+  margin-top: 1rem;
+}
+
+.rift-energy-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.3rem;
+  font-size: 0.8rem;
+  color: #feeecd;
+}
+
+.rift-energy-title {
+  text-transform: uppercase;
+  letter-spacing: 0;
+  font-weight: 600;
+  color: #feeecd;
+}
+
+.rift-energy-status {
+  font-family: monospace;
+  color: #30d630;
+  white-space: nowrap;
+}
+
+.rift-energy-bar {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: #111111;
+  overflow: hidden;
+}
+
+.rift-energy-bar-fill {
+  height: 100%;
+  background-image: linear-gradient(90deg, #d5502c, #b39628);
+  transition: width 0.18s ease-out;
+}
+
+/* =========================
+   FULL-BAR GLOW EFFECTS
+   ========================= */
+
+/* Rift Energy: glow when full */
+.rift-energy-bar--full {
+  box-shadow: 0 0 8px #d5502c;
+}
+
+/* Progress Bar: glow when full */
+.progress-bar--full {
+  box-shadow: 0 0 8px #30d630;
 }

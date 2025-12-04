@@ -4,7 +4,7 @@ import React, {
   useCallback,
   useEffect,
   useState,
-  useRef, // ⬅ added
+  useRef,
 } from "react";
 import { RPC_BASE_URL, fetchSupraWrAccess } from "./TokenGate";
 
@@ -370,7 +370,7 @@ async function fetchLifetimeGasStats(
 
 // -------------------- LOCAL CACHE HELPERS --------------------
 
-const GAS_CACHE_PREFIX = "suprawr_gas_cache_v1:"
+const GAS_CACHE_PREFIX = "suprawr_gas_cache_v1:";
 const MAX_CACHE_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours TTL
 
 function getGasCacheKey(address) {
@@ -414,6 +414,45 @@ function saveGasCache(address, payload) {
   }
 }
 
+// -------------------- RIFT ENERGY COOLDOWN HELPERS --------------------
+
+// NOTE: currently 1-minute cooldown as in your file
+const COOLDOWN_MS = 60_000;
+const RIFT_COOLDOWN_PREFIX = "suprawr_rift_cd_v1:";
+
+function getRiftCooldownKey(address) {
+  if (!address) return null;
+  return `${RIFT_COOLDOWN_PREFIX}${address.toLowerCase()}`;
+}
+
+function loadRiftCooldown(address) {
+  if (typeof window === "undefined") return null;
+  const key = getRiftCooldownKey(address);
+  if (!key) return null;
+
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
+    const num = Number(raw);
+    if (!Number.isFinite(num) || num <= 0) return null;
+    return num;
+  } catch {
+    return null;
+  }
+}
+
+function saveRiftCooldown(address, endMs) {
+  if (typeof window === "undefined") return;
+  const key = getRiftCooldownKey(address);
+  if (!key) return;
+
+  try {
+    window.localStorage.setItem(key, String(endMs));
+  } catch {
+    // ignore storage failures
+  }
+}
+
 // -------------------- MAIN COMPONENT --------------------
 
 export default function GasFeeStats() {
@@ -442,6 +481,13 @@ export default function GasFeeStats() {
   const [supraUsdPrice, setSupraUsdPrice] = useState(null);
 
   const [showInfo, setShowInfo] = useState(false);
+
+  // Rift Energy cooldown state
+  const [cooldownEndMs, setCooldownEndMs] = useState(null);
+  const [nowMs, setNowMs] = useState(Date.now());
+
+  // Have we successfully loaded stats (from cache or fresh scan)?
+  const [hasStats, setHasStats] = useState(false);
 
   // run id to cancel in-flight calculations on disconnect / wallet change
   const calcRunIdRef = useRef(0);
@@ -480,20 +526,27 @@ export default function GasFeeStats() {
     }
   }, []);
 
+  const startRiftCooldown = useCallback(
+    (addr) => {
+      if (!addr) return;
+      const end = Date.now() + COOLDOWN_MS;
+      setCooldownEndMs(end);
+      saveRiftCooldown(addr, end);
+    },
+    []
+  );
+
   // Core calculation + cache writer
   const runGasCalculationWithCache = useCallback(
-    async (addr) => {
+    async (addr, options = {}) => {
       if (!addr) return;
+      const { isManualRecalc = false } = options;
 
       const runId = ++calcRunIdRef.current;
 
       try {
         setCalculating(true);
         setError("");
-        setTotalSupra(null);
-        setAvgSupra(null);
-        setMonthlyAvgSupra(null);
-        setTxCount(0);
         setPagesProcessed(0);
         setProgressPercent(5);
 
@@ -525,6 +578,7 @@ export default function GasFeeStats() {
         setTotalSupra(totalSupra);
         setAvgSupra(avgSupra);
         setMonthlyAvgSupra(monthlyAvgSupra);
+        setHasStats(true);
 
         saveGasCache(addr, {
           totalTx,
@@ -532,6 +586,11 @@ export default function GasFeeStats() {
           avgSupra,
           monthlyAvgSupra,
         });
+
+        // Only start Rift cooldown on user-triggered recalc, not auto initial scan
+        if (isManualRecalc) {
+          startRiftCooldown(addr);
+        }
       } catch (e) {
         console.error(e);
         setError(
@@ -539,11 +598,12 @@ export default function GasFeeStats() {
         );
         setProgressPercent(0);
         setPagesProcessed(0);
+        // Keep any previous stats visible if they existed
       } finally {
         setCalculating(false);
       }
     },
-    []
+    [startRiftCooldown]
   );
 
   // Single source of truth: access + cache + TTL-based maybe calc
@@ -558,7 +618,8 @@ export default function GasFeeStats() {
       const cache = loadGasCache(addr);
 
       if (!cache) {
-        await runGasCalculationWithCache(addr);
+        // Initial scan – no cooldown
+        await runGasCalculationWithCache(addr, { isManualRecalc: false });
         return;
       }
 
@@ -568,6 +629,7 @@ export default function GasFeeStats() {
       setMonthlyAvgSupra(cache.monthlyAvgSupra || null);
       setPagesProcessed(0);
       setProgressPercent(0);
+      setHasStats(true);
 
       const updatedAtMs =
         typeof cache.updatedAtMs === "number" ? cache.updatedAtMs : 0;
@@ -577,14 +639,8 @@ export default function GasFeeStats() {
         return;
       }
 
-      setTxCount(0);
-      setTotalSupra(null);
-      setAvgSupra(null);
-      setMonthlyAvgSupra(null);
-      setPagesProcessed(0);
-      setProgressPercent(0);
-
-      await runGasCalculationWithCache(addr);
+      // TTL expired – keep existing stats visible, refresh in place
+      await runGasCalculationWithCache(addr, { isManualRecalc: false });
     },
     [runAccessCheck, runGasCalculationWithCache]
   );
@@ -672,12 +728,14 @@ export default function GasFeeStats() {
       setConnected(!!isConnected);
       setAddress(newAddr || "");
 
+      // Reset stats for new wallet; show "No data" until its first scan
       setTxCount(0);
       setTotalSupra(null);
       setAvgSupra(null);
       setMonthlyAvgSupra(null);
       setPagesProcessed(0);
       setProgressPercent(0);
+      setHasStats(false);
 
       if (!isConnected || !newAddr) {
         // cancel any in-flight calc on external disconnect
@@ -686,6 +744,7 @@ export default function GasFeeStats() {
         setSupraWrBalanceDisplay(null);
         setHolderRank(null);
         setError("");
+        setCooldownEndMs(null); // no active wallet, no active cooldown
       } else {
         runAccessAndMaybeCalc(newAddr);
       }
@@ -696,6 +755,44 @@ export default function GasFeeStats() {
       window.removeEventListener("suprawr:walletChange", handleWalletChange);
     };
   }, [address, connected, runAccessAndMaybeCalc]);
+
+  // Load Rift cooldown when address changes (per wallet)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    if (!address) {
+      setCooldownEndMs(null);
+      return;
+    }
+
+    const stored = loadRiftCooldown(address);
+    if (!stored) {
+      setCooldownEndMs(null);
+      return;
+    }
+
+    if (stored <= Date.now()) {
+      setCooldownEndMs(null);
+    } else {
+      setCooldownEndMs(stored);
+    }
+  }, [address]);
+
+  // Drive cooldown timer (Rift Energy bar)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!cooldownEndMs) return;
+
+    setNowMs(Date.now());
+
+    const id = window.setInterval(() => {
+      setNowMs(Date.now());
+    }, 500);
+
+    return () => {
+      window.clearInterval(id);
+    };
+  }, [cooldownEndMs]);
 
   const handleAction = useCallback(
     async () => {
@@ -745,7 +842,10 @@ export default function GasFeeStats() {
       const allowed = await runAccessCheck(address);
       if (!allowed) return;
 
-      await runGasCalculationWithCache(address);
+      // Manual action: if we already have results, this is a recalc
+      const isManualRecalc = !!hasStats;
+
+      await runGasCalculationWithCache(address, { isManualRecalc });
     },
     [
       provider,
@@ -754,6 +854,7 @@ export default function GasFeeStats() {
       runAccessCheck,
       runGasCalculationWithCache,
       runAccessAndMaybeCalc,
+      hasStats,
     ]
   );
 
@@ -783,6 +884,8 @@ export default function GasFeeStats() {
       setCalculating(false);
       setConnecting(false);
       setCheckingAccess(false);
+      setCooldownEndMs(null);
+      setHasStats(false);
     },
     [provider]
   );
@@ -810,6 +913,28 @@ export default function GasFeeStats() {
   const isWalletButtonDisabled =
     connecting || calculating || checkingAccess;
 
+  // --- Rift cooldown derived values ---
+  let cooldownActive = false;
+  let cooldownRemainingMs = 0;
+  let cooldownProgress = 0;
+
+  if (cooldownEndMs) {
+    const diff = cooldownEndMs - nowMs;
+    if (diff > 0) {
+      cooldownActive = true;
+      cooldownRemainingMs = diff;
+      const ratio = 1 - diff / COOLDOWN_MS;
+      cooldownProgress = Math.min(1, Math.max(0, ratio));
+    } else {
+      cooldownActive = false;
+      cooldownProgress = 1;
+    }
+  }
+
+  const cooldownRemainingSeconds = cooldownActive
+    ? Math.ceil(cooldownRemainingMs / 1000)
+    : 0;
+
   const buttonLabel =
     walletInstalled === false && !provider
       ? "Install StarKey Wallet"
@@ -823,7 +948,9 @@ export default function GasFeeStats() {
       ? "Access Denied (Need 1,000 $SUPRAWR)"
       : calculating
       ? "Calculating…"
-      : totalSupra
+      : hasStats && cooldownActive
+      ? `Rift Energy Recharging… ${cooldownRemainingSeconds}s`
+      : hasStats
       ? "Recalculate Gas Fees"
       : "Calculate Gas Fees";
 
@@ -831,7 +958,8 @@ export default function GasFeeStats() {
     connecting ||
     calculating ||
     checkingAccess ||
-    (connected && hasAccess === false);
+    (connected && hasAccess === false) ||
+    (connected && hasAccess && hasStats && cooldownActive);
 
   const totalSupraUsdDisplay =
     totalSupra && supraUsdPrice != null
@@ -847,6 +975,81 @@ export default function GasFeeStats() {
     monthlyAvgSupra && supraUsdPrice != null
       ? formatUsdApproxFromSupraString(monthlyAvgSupra, supraUsdPrice)
       : null;
+
+  // --- Progress bar derived display ---
+  let displayProgressPercent = 0;
+  let progressLabelText = "No scan run yet.";
+
+  if (calculating) {
+    displayProgressPercent = Math.min(
+      100,
+      Math.max(0, progressPercent || 5)
+    );
+    progressLabelText = `Scanning coin txs... Pages processed: ${pagesProcessed}`;
+  } else if (hasStats) {
+    displayProgressPercent = 100;
+    progressLabelText = "Last scan complete";
+  } else {
+    displayProgressPercent = 0;
+    progressLabelText = "No scan run yet";
+  }
+
+  // --- Rift Energy bar display ---
+  let energyProgress = 1;
+  if (cooldownActive) {
+    energyProgress = cooldownProgress;
+  }
+
+  let riftStatusLabel;
+  if (cooldownActive) {
+    riftStatusLabel = `Recharging… ${cooldownRemainingSeconds}s`;
+  } else if (connected && hasAccess && hasStats) {
+    riftStatusLabel = "Full";
+  } else if (connected && hasAccess) {
+    riftStatusLabel = "Ready to run first scan";
+  } else {
+    riftStatusLabel = "Connect wallet to begin";
+  }
+
+  const formattedTxCount =
+    typeof txCount === "number" && txCount.toLocaleString
+      ? txCount.toLocaleString()
+      : txCount;
+
+  let totalSupraDisplay = "No data";
+  if (hasStats && totalSupra) {
+    totalSupraDisplay = `~${totalSupra} $SUPRA`;
+    if (totalSupraUsdDisplay) {
+      totalSupraDisplay += ` (~$${totalSupraUsdDisplay})`;
+    }
+  }
+
+  let avgSupraDisplay = "No data";
+  if (hasStats && avgSupra) {
+    avgSupraDisplay = `~${avgSupra} $SUPRA`;
+    if (avgSupraUsdDisplay) {
+      avgSupraDisplay += ` (~$${avgSupraUsdDisplay})`;
+    }
+  }
+
+  let monthlySupraDisplay = "No data";
+  if (hasStats && monthlyAvgSupra) {
+    monthlySupraDisplay = `~${monthlyAvgSupra} $SUPRA`;
+    if (monthlyAvgUsdDisplay) {
+      monthlySupraDisplay += ` (~$${monthlyAvgUsdDisplay})`;
+    }
+  }
+
+  // --- FULL-BAR GLOW FLAGS ---
+  const isEnergyFull = !cooldownActive && energyProgress >= 0.999;
+  const riftBarClassName = `rift-energy-bar${
+    isEnergyFull ? " rift-energy-bar--full" : ""
+  }`;
+
+  const isProgressFull = !calculating && hasStats && displayProgressPercent >= 100;
+  const progressBarClassName = `progress-bar${
+    isProgressFull ? " progress-bar--full" : ""
+  }`;
 
   return (
     <>
@@ -886,16 +1089,43 @@ export default function GasFeeStats() {
 
               <div className="modal-001-body gas-info-body">
                 <p>
-                  This tool tracks gas spent on <strong>SUPRA coin transactions only</strong> for your connected wallet, using Supra’s public RPC.
+                  This tool tracks gas spent on{" "}
+                  <strong>SUPRA coin transactions only</strong> for your
+                  connected wallet, using Supra’s public RPC.
                 </p>
                 <p>
-                  It works through the <code>coin_transactions</code> endpoint, which is the only RPC endpoint that includes gas usage details. <strong>The only place full gas-fee data exists is inside the complete transaction detail, which Supra RPC currently does not expose through any public “fetch by hash” endpoint.</strong> Because of this, <strong>contract calls, burns, swaps, NFTs, and other non-coin actions cannot be included.</strong>
+                  It works through the <code>coin_transactions</code> endpoint,
+                  which is the only RPC endpoint that includes gas usage
+                  details.{" "}
+                  <strong>
+                    The only place full gas-fee data exists is inside the
+                    complete transaction detail, which Supra RPC currently does
+                    not expose through any public “fetch by hash” endpoint.
+                  </strong>{" "}
+                  Because of this,{" "}
+                  <strong>
+                    contract calls, burns, swaps, NFTs, and other non-coin
+                    actions cannot be included.
+                  </strong>
                 </p>
                 <p>
-                  <strong>There is currently no way to compute a wallet’s total gas fees across ALL transaction types using only the public Supra RPC.</strong>
+                  <strong>
+                    There is currently no way to compute a wallet’s total gas
+                    fees across ALL transaction types using only the public
+                    Supra RPC.
+                  </strong>
                 </p>
                 <p>
-                  To improve performance, the tool <strong>automatically scans and calculates when you connect your wallet</strong>, then <strong>caches results for 24 hours</strong>. Reconnecting within that window shows cached values instantly. After 24 hours, a fresh scan runs automatically. You can also manually force a new scan using <strong> Recalculate Gas Fees</strong>.
+                  To improve performance, the tool{" "}
+                  <strong>
+                    automatically scans and calculates when you connect your
+                    wallet
+                  </strong>
+                  , then <strong>caches results for 24 hours</strong>.
+                  Reconnecting within that window shows cached values
+                  instantly. After 24 hours, a fresh scan runs automatically.
+                  You can also manually force a new scan using{" "}
+                  <strong>Recalculate Gas Fees</strong>.
                 </p>
               </div>
             </div>
@@ -926,64 +1156,64 @@ export default function GasFeeStats() {
           {buttonLabel}
         </button>
 
-        {calculating && (
-          <div className="progress-wrapper">
-            <div className="progress-label">
-              Scanning coin txs... Pages processed: {pagesProcessed}
-            </div>
-            <div className="progress-bar">
-              <div
-                className="progress-bar-fill"
-                style={{ width: `${progressPercent}%` }}
-              />
-            </div>
+        {/* Rift Energy Recharge bar – always visible */}
+        <div className="rift-energy-wrapper">
+          <div className="rift-energy-header">
+            <span className="rift-energy-title">Rift Energy</span>
+            <span className="rift-energy-status">{riftStatusLabel}</span>
           </div>
-        )}
+          <div className={riftBarClassName}>
+            <div
+              className="rift-energy-bar-fill"
+              style={{
+                width: `${Math.round(energyProgress * 100)}%`,
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Progress bar – always visible */}
+        <div className="progress-wrapper">
+          <div className="progress-label">{progressLabelText}</div>
+          <div className={progressBarClassName}>
+            <div
+              className="progress-bar-fill"
+              style={{ width: `${displayProgressPercent}%` }}
+            />
+          </div>
+        </div>
 
         {error && <div className="alert error">{error}</div>}
 
-        {connected && hasAccess && !error && totalSupra && (
+        {connected && hasAccess && !error && (
           <div className="results">
             <div className="result-row">
-              <span className="result-label">Coin txs scanned</span>
+              <span className="result-label">$SUPRA txs scanned</span>
               <span className="result-value">
-                {txCount.toLocaleString ? txCount.toLocaleString() : txCount}
+                {hasStats ? formattedTxCount : "No data"}
               </span>
             </div>
 
             <div className="result-row">
               <span className="result-label">
-                Estimated gas spent on coin txs
+                Estimated gas spent on $SUPRA txs
               </span>
-              <span className="result-value">
-                ~{totalSupra} $SUPRA
-                {totalSupraUsdDisplay && ` (~$${totalSupraUsdDisplay})`}
-              </span>
+              <span className="result-value">{totalSupraDisplay}</span>
             </div>
 
-            {avgSupra && (
-              <div className="result-row">
-                <span className="result-label">
-                  Average estimated gas per coin tx
-                </span>
-                <span className="result-value">
-                  ~{avgSupra} $SUPRA
-                  {avgSupraUsdDisplay && ` (~$${avgSupraUsdDisplay})`}
-                </span>
-              </div>
-            )}
+            <div className="result-row">
+              <span className="result-label">
+                Average estimated gas per $SUPRA tx
+              </span>
+              <span className="result-value">{avgSupraDisplay}</span>
+            </div>
 
-            {monthlyAvgSupra && (
-              <div className="result-row">
-                <span className="result-label">
-                  Estimated gas spent per month
-                </span>
-                <span className="result-value">
-                  ~{monthlyAvgSupra} $SUPRA
-                  {monthlyAvgUsdDisplay && ` (~$${monthlyAvgUsdDisplay})`}
-                </span>
-              </div>
-            )}
+            <div className="result-row">
+              <span className="result-label">
+                Estimated gas spent per month
+              </span>
+              <span className="result-value">{monthlySupraDisplay}</span>
+            </div>
           </div>
         )}
       </section>
