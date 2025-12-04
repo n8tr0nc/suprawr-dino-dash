@@ -1008,7 +1008,7 @@ export default function GasFeeStats() {
   } else if (connected && hasAccess) {
     riftStatusLabel = "Ready to run first scan";
   } else {
-    riftStatusLabel = "Connect wallet to begin";
+    riftStatusLabel = "Full - Connect wallet to use";
   }
 
   const formattedTxCount =
