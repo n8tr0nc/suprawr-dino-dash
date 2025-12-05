@@ -6,6 +6,9 @@ import GasFeeStats from "./components/GasFeeStats";
 import RiftConnectOverlay from "./components/RiftConnectOverlay";
 import RiftEntryOverlay from "./components/RiftEntryOverlay";
 
+const TERMINAL_FLICKER_DURATION = 350; // ms
+const TERMINAL_FADE_DURATION = 500; // ms
+
 /* Simple compact format for sidebar display */
 function formatCompactBalance(raw) {
   const num = Number(raw);
@@ -47,28 +50,28 @@ export default function Home() {
   const [supraWrBalanceDisplay, setSupraWrBalanceDisplay] = useState(null);
   const [supraBalanceDisplay, setSupraBalanceDisplay] = useState(null);
 
-  // Burn total + loading flag
-  const [burnTotal, setBurnTotal] = useState(null); // null = not loaded yet
+  const [burnTotal, setBurnTotal] = useState(null);
   const [burnLoading, setBurnLoading] = useState(false);
 
   const [showRankModal, setShowRankModal] = useState(false);
   const [supraUsdPrice, setSupraUsdPrice] = useState(null);
 
-  // For refresh button
   const [currentAddress, setCurrentAddress] = useState(null);
   const [refreshingBalances, setRefreshingBalances] = useState(false);
 
-  // run id so disconnect cancels any sidebar refresh in progress
   const refreshRunIdRef = useRef(0);
 
-  // Rift connect FX (center shockwave)
+  // Ripple removed — only the connect effect remains
   const [showRiftFx, setShowRiftFx] = useState(false);
   const riftFxTimeoutRef = useRef(null);
 
-  // Rift Entry Terminal overlay (soft gate)
+  // ENTRY OVERLAY
   const [showEntryOverlay, setShowEntryOverlay] = useState(true);
 
-  // Fade-out state when disconnecting back to terminal
+  // NEW: terminal flicker-out before overlay fade
+  const [terminalFlickerOut, setTerminalFlickerOut] = useState(false);
+
+  // Overlay fade
   const [isFadingToTerminal, setIsFadingToTerminal] = useState(false);
   const fadeTimeoutRef = useRef(null);
 
@@ -88,7 +91,7 @@ export default function Home() {
     setShowEntryOverlay(false);
   };
 
-  /* Listen for tier updates sent from TopRightBar */
+  /* Tier update listener */
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -100,29 +103,31 @@ export default function Home() {
     }
 
     window.addEventListener("suprawr:tierUpdate", handleTierUpdate);
-    return () => {
+    return () =>
       window.removeEventListener("suprawr:tierUpdate", handleTierUpdate);
-    };
   }, []);
 
-  /* Track current connected wallet address from global walletChange events */
+  /* Wallet connect / disconnect */
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     function handleWalletChange(event) {
       const { address, connected } = event.detail || {};
 
+      //--------------------------------------//
+      //            WALLET CONNECT            //
+      //--------------------------------------//
       if (connected && address) {
-        // Any active fade-to-terminal should be cancelled on connect
+        setCurrentAddress(address);
+
+        // stop any prior timers
         if (fadeTimeoutRef.current) {
           clearTimeout(fadeTimeoutRef.current);
           fadeTimeoutRef.current = null;
         }
         setIsFadingToTerminal(false);
 
-        setCurrentAddress(address);
-
-        // 🔥 Trigger Rift connect FX on every successful connect
+        // Rift FX
         setShowRiftFx(true);
         if (riftFxTimeoutRef.current) {
           clearTimeout(riftFxTimeoutRef.current);
@@ -132,7 +137,7 @@ export default function Home() {
           riftFxTimeoutRef.current = null;
         }, 1800);
 
-        // Fetch burned SUPRAWR total
+        // Fetch burned SUPRAWR
         (async () => {
           setBurnLoading(true);
           try {
@@ -141,100 +146,85 @@ export default function Home() {
             );
             if (res.ok) {
               const data = await res.json();
-              if (data && typeof data.burn_suprawr === "string") {
-                setBurnTotal(data.burn_suprawr);
-              } else {
-                setBurnTotal("0");
-              }
-            } else {
-              setBurnTotal("0");
-            }
-          } catch (err) {
-            console.error("Failed to fetch burn total:", err);
+              setBurnTotal(
+                data?.burn_suprawr && typeof data.burn_suprawr === "string"
+                  ? data.burn_suprawr
+                  : "0"
+              );
+            } else setBurnTotal("0");
+          } catch {
             setBurnTotal("0");
           } finally {
             setBurnLoading(false);
           }
         })();
 
-        // On every connect, fetch a fresh, uncached SUPRA USD price
+        // Fetch Supra price
         (async () => {
           try {
             const res = await fetch(`/api/supra-price?t=${Date.now()}`);
-            if (!res.ok) return;
             const data = await res.json();
-            if (data && typeof data.priceUsd === "number") {
+            if (data && typeof data.priceUsd === "number")
               setSupraUsdPrice(data.priceUsd);
-            }
-          } catch (err) {
-            console.error(
-              "Failed to fetch SUPRA price on wallet connect:",
-              err
-            );
-          }
+          } catch {}
         })();
-      } else {
-        // invalidate any ongoing refresh when disconnect fires
-        refreshRunIdRef.current++;
-        setCurrentAddress(null);
-        setSupraBalanceDisplay(null);
-        setSupraWrBalanceDisplay(null);
-        setSupraUsdPrice(null);
-        setBurnTotal(null);
-        setBurnLoading(false);
 
-        // stop any in-flight Rift FX if user disconnects
-        if (riftFxTimeoutRef.current) {
-          clearTimeout(riftFxTimeoutRef.current);
-          riftFxTimeoutRef.current = null;
-        }
-        setShowRiftFx(false);
+        return;
+      }
 
-        // Cancel any existing fade timers before starting a new one
-        if (fadeTimeoutRef.current) {
-          clearTimeout(fadeTimeoutRef.current);
-          fadeTimeoutRef.current = null;
-        }
+      //--------------------------------------//
+      //           WALLET DISCONNECT          //
+      //--------------------------------------//
 
-        // Trigger page fade-out, then show terminal overlay
+      refreshRunIdRef.current++;
+      setCurrentAddress(null);
+      setSupraBalanceDisplay(null);
+      setSupraWrBalanceDisplay(null);
+      setSupraUsdPrice(null);
+      setBurnTotal(null);
+      setBurnLoading(false);
+
+      if (riftFxTimeoutRef.current) clearTimeout(riftFxTimeoutRef.current);
+      setShowRiftFx(false);
+
+      if (fadeTimeoutRef.current) clearTimeout(fadeTimeoutRef.current);
+
+      // 1. Flicker terminal UI
+      setTerminalFlickerOut(true);
+
+      // 2. After flicker, fade overlay
+      setTimeout(() => {
+        setTerminalFlickerOut(false);
         setIsFadingToTerminal(true);
+
         fadeTimeoutRef.current = setTimeout(() => {
           setShowEntryOverlay(true);
           setIsFadingToTerminal(false);
           fadeTimeoutRef.current = null;
-        }, 500); // match CSS transition duration
-      }
+        }, TERMINAL_FADE_DURATION);
+      }, TERMINAL_FLICKER_DURATION);
     }
 
     window.addEventListener("suprawr:walletChange", handleWalletChange);
     return () => {
       window.removeEventListener("suprawr:walletChange", handleWalletChange);
-
-      // cleanup any leftover FX timer on unmount
-      if (riftFxTimeoutRef.current) {
-        clearTimeout(riftFxTimeoutRef.current);
-      }
-      if (fadeTimeoutRef.current) {
-        clearTimeout(fadeTimeoutRef.current);
-      }
+      if (riftFxTimeoutRef.current) clearTimeout(riftFxTimeoutRef.current);
+      if (fadeTimeoutRef.current) clearTimeout(fadeTimeoutRef.current);
     };
   }, []);
 
-  /* Fetch SUPRA USD price once initially (page load) */
+  /* Fetch price on load */
   useEffect(() => {
     let cancelled = false;
 
     async function fetchPrice() {
       try {
         const res = await fetch(`/api/supra-price?t=${Date.now()}`);
-        if (!res.ok) return;
         const data = await res.json();
         if (!cancelled && data && typeof data.priceUsd === "number") {
           setSupraUsdPrice(data.priceUsd);
         }
-      } catch (err) {
-        console.error("Failed to fetch SUPRA price:", err);
-      }
+      } catch {}
     }
 
     fetchPrice();
@@ -243,12 +233,9 @@ export default function Home() {
     };
   }, []);
 
-  // Manual refresh for SUPRA balance + price + SUPRAWR balance + burn total
+  /* Manual refresh balances */
   const handleRefreshBalances = async () => {
-    if (!currentAddress) {
-      console.warn("No connected wallet address; cannot refresh balances.");
-      return;
-    }
+    if (!currentAddress) return;
 
     const runId = ++refreshRunIdRef.current;
 
@@ -267,50 +254,38 @@ export default function Home() {
         fetch(`/api/burn-total?address=${encodeURIComponent(currentAddress)}`),
       ]);
 
-      // if disconnect happened while these were in flight, drop results
-      if (refreshRunIdRef.current !== runId) {
-        return;
-      }
+      if (refreshRunIdRef.current !== runId) return;
 
-      // SUPRA native balance
       if (balRes.ok) {
         const balData = await balRes.json();
-        if (balData && typeof balData.balanceDisplay === "string") {
+        if (balData?.balanceDisplay)
           setSupraBalanceDisplay(balData.balanceDisplay);
-        }
       }
 
-      // SUPRA USD price
       if (priceRes.ok) {
         const priceData = await priceRes.json();
-        if (priceData && typeof priceData.priceUsd === "number") {
-          setSupraUsdPrice(priceData.priceUsd);
-        }
+        if (priceData?.priceUsd) setSupraUsdPrice(priceData.priceUsd);
       }
 
-      // SUPRAWR balance (no USD, just total + rank)
       if (suprawrRes.ok) {
         const wrData = await suprawrRes.json();
-        if (wrData && typeof wrData.balanceDisplay === "string") {
+        if (wrData?.balanceDisplay) {
           setSupraWrBalanceDisplay(wrData.balanceDisplay);
-          const newRank = computeHolderRankFromDisplay(wrData.balanceDisplay);
-          setHolderRank(newRank);
+          setHolderRank(
+            computeHolderRankFromDisplay(wrData.balanceDisplay) || null
+          );
         }
       }
 
-      // Burn total
       if (burnRes.ok) {
         const burnData = await burnRes.json();
-        if (burnData && typeof burnData.burn_suprawr === "string") {
-          setBurnTotal(burnData.burn_suprawr);
-        } else {
-          setBurnTotal("0");
-        }
-      } else {
-        setBurnTotal("0");
-      }
-    } catch (err) {
-      console.error("Failed to refresh balances:", err);
+        setBurnTotal(
+          burnData?.burn_suprawr && typeof burnData.burn_suprawr === "string"
+            ? burnData.burn_suprawr
+            : "0"
+        );
+      } else setBurnTotal("0");
+    } catch {
       setBurnTotal("0");
     } finally {
       setRefreshingBalances(false);
@@ -323,7 +298,6 @@ export default function Home() {
       ? (parseFloat(supraBalanceDisplay) * supraUsdPrice).toFixed(2)
       : null;
 
-  // Flags for skeletons
   const supraLoading =
     !!currentAddress &&
     (refreshingBalances ||
@@ -342,18 +316,15 @@ export default function Home() {
     <div
       className={`dashboard-shell ${
         isSidebarOpen ? "sidebar-open" : ""
-      } ${showRiftFx ? "rift-ripple-active" : ""} ${
-        isFadingToTerminal ? "dashboard-shell--fading-out" : ""
-      }`}
+      } ${isFadingToTerminal ? "dashboard-shell--fading-out" : ""}`}
     >
-      {/* LEFT SIDEBAR */}
+      {/* SIDEBAR */}
       <aside
         className={`dashboard-sidebar ${
           isSidebarOpen ? "sidebar-open" : ""
         }`}
       >
         <div className="sidebar-top">
-          {/* BRANDING */}
           <div className="sidebar-brand">
             <img
               src="/suprawr001.webp"
@@ -366,7 +337,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* RANK TAG RIGHT UNDER TAGLINE */}
           {holderRank && (
             <button
               type="button"
@@ -377,9 +347,7 @@ export default function Home() {
             </button>
           )}
 
-          {/* COINS, BALANCES */}
           <div className="sidebar-section">
-            {/* HEADER, REFRESH */}
             <div className="sidebar-section-header balances-inside">
               <div className="sidebar-section-label">Balances</div>
               <button
@@ -393,7 +361,6 @@ export default function Home() {
               </button>
             </div>
 
-            {/* $SUPRA */}
             {currentAddress && (
               <div className="sidebar-balance-line">
                 <span className="sidebar-balance-line-label">$SUPRA</span>
@@ -413,7 +380,6 @@ export default function Home() {
               </div>
             )}
 
-            {/* $SUPRAWR */}
             {currentAddress && (
               <div className="sidebar-balance-line">
                 <span className="sidebar-balance-line-label">$SUPRAWR</span>
@@ -429,7 +395,6 @@ export default function Home() {
               </div>
             )}
 
-            {/* Burn total */}
             {currentAddress && (
               <div className="sidebar-balance-line">
                 <span className="sidebar-balance-line-label">Burned</span>
@@ -453,7 +418,6 @@ export default function Home() {
             </a>
           </div>
 
-          {/* MODULES LIST */}
           <div className="sidebar-section">
             <div className="sidebar-section-label">Modules</div>
             <ul className="sidebar-modules-list">
@@ -492,81 +456,47 @@ export default function Home() {
         <div className="sidebar-social">
           <a
             href="https://x.com/SuprawrToken"
+            className="social-icon"
             target="_blank"
             rel="noopener noreferrer"
-            className="social-icon"
           >
-            <svg
-              stroke="currentColor"
-              fill="currentColor"
-              strokeWidth="0"
-              viewBox="0 0 24 24"
-              height="24"
-              width="24"
-            >
-              <path d="M10.4883 14.651L15.25 21H22.25L14.3917 10.5223L20.9308 3H18.2808L13.1643 8.88578L8.75 3H1.75L9.26086 13.0145L2.31915 21H4.96917L10.4883 14.651ZM16.25 19L5.75 5H7.75L18.25 19H16.25Z"></path>
-            </svg>
+            Ⓧ
           </a>
-
           <a
             href="https://t.me/SUPRAWRportal"
+            className="social-icon"
             target="_blank"
             rel="noopener noreferrer"
-            className="social-icon"
           >
-            <svg
-              stroke="currentColor"
-              fill="currentColor"
-              strokeWidth="0"
-              viewBox="0 0 256 256"
-              height="24"
-              width="24"
-            >
-              <path d="M228.88,26.19a9,9,0,0,0-9.16-1.57L17.06,103.93a14.22,14.22,0,0,0,2.43,27.21L72,141.45V200a15.92,15.92,0,0,0,10,14.83,15.91,15.91,0,0,0,17.51-3.73l25.32-26.26L165,220a15.88,15.88,0,0,0,10.51,4,16.3,16.3,0,0,0,5-.79,15.85,15.85,0,0,0,10.67-11.63L231.77,35A9,9,0,0,0,228.88,26.19Zm-61.14,36L78.15,126.35l-49.6-9.73ZM88,200V152.52l24.79,21.74Zm87.53,8L92.85,135.5l119-85.29Z"></path>
-            </svg>
+            ✆
           </a>
-
           <a
             href="https://suprawr.com"
+            className="social-icon"
             target="_blank"
             rel="noopener noreferrer"
-            className="social-icon"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              height="24"
-              width="24"
-              fill="currentColor"
-            >
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm7.93 9H17c-.22-2.06-1-3.92-2.15-5.39A8.03 8.03 0 0 1 19.93 11zM12 4c1.62 0 3.2.56 4.47 1.6C15.09 7.26 14.22 9.5 14 12h-4c-.22 2.5-1.09 4.74-2.47 6.4A7.96 7.96 0 0 1 12 4zM4.07 13H7c.22 2.06 1 3.92 2.15 5.39A8.03 8.03 0 0 1 4.07 13zM12 20a7.96 7.96 0 0 1-4.47-1.6C8.91 16.74 9.78 14.5 10 12h4c.22 2.5 1.09 4.74 2.47 6.4A7.96 7.96 0 0 1 12 20zm4.85-1.61C17 16.92 17.78 15.06 18 13h2.93a8.03 8.03 0 0 1-4.08 5.39z" />
-            </svg>
+            ◎
           </a>
         </div>
 
         <div className="sidebar-version">
-          v0.1.0 – Built by the Suprawr Crew.
-          <br />
-          Nothing here is financial advice — just tools for dinos who like data.
+          v0.1.0 — Built by the Suprawr Crew.
         </div>
       </aside>
 
-      {/* MOBILE SIDEBAR OVERLAY (click to close) */}
       {isSidebarOpen && (
         <div className="sidebar-overlay" onClick={closeSidebar} />
       )}
 
-      {/* MAIN DASHBOARD AREA */}
+      {/* HEADER AREA */}
       <main className="dashboard-main">
         <TopRightBar onToggleSidebar={toggleSidebar} />
-
         <header className="dashboard-header">
           <div className="dashboard-header-left">
             <div>
               <h1 className="dashboard-title">
-                <span className="gas-icon" role="img" aria-label="Gas icon">
-                  ⛽︎
-                </span>{" "}
-                GAS TRACKER
+                <span className="gas-icon">⛽︎</span> GAS TRACKER
               </h1>
               <p className="dashboard-subtitle">
                 Track how much gas your Supra wallet has spent.
@@ -575,6 +505,7 @@ export default function Home() {
           </div>
         </header>
 
+        {/* MAIN CONTENT GRID */}
         <section className="dashboard-grid">
           <div className="dashboard-main-column">
             <section className="dashboard-panel">
@@ -602,33 +533,27 @@ export default function Home() {
         </section>
       </main>
 
-      {/* MOBILE BOTTOM NAV */}
-      <nav className="mobile-bottom-nav" aria-label="Suprawr modules">
-        <button
-          type="button"
-          className="mobile-bottom-nav-item mobile-bottom-nav-item-active"
-        >
+      {/* MOBILE NAV */}
+      <nav className="mobile-bottom-nav">
+        <button className="mobile-bottom-nav-item mobile-bottom-nav-item-active">
           <span className="mobile-bottom-nav-item-icon">⛽︎</span>
           <span className="mobile-bottom-nav-item-label">Gas Tracker</span>
         </button>
-
-        <button type="button" className="mobile-bottom-nav-item">
+        <button className="mobile-bottom-nav-item">
           <span className="mobile-bottom-nav-item-icon">②</span>
           <span className="mobile-bottom-nav-item-label">Feature 02</span>
         </button>
-
-        <button type="button" className="mobile-bottom-nav-item">
+        <button className="mobile-bottom-nav-item">
           <span className="mobile-bottom-nav-item-icon">③</span>
           <span className="mobile-bottom-nav-item-label">Feature 03</span>
         </button>
-
-        <button type="button" className="mobile-bottom-nav-item">
+        <button className="mobile-bottom-nav-item">
           <span className="mobile-bottom-nav-item-icon">④</span>
           <span className="mobile-bottom-nav-item-label">Feature 04</span>
         </button>
       </nav>
 
-      {/* RANK MODAL (uses data from tierUpdate / refresh) */}
+      {/* RANK MODAL */}
       {showRankModal && holderRank && supraWrBalanceDisplay && (
         <div
           className="modal-001-overlay tier-modal-overlay"
@@ -655,10 +580,7 @@ export default function Home() {
                 Your rank{" "}
                 <span className="tier-current-name">{holderRank}</span>{" "}
                 <span className="tier-current-balance">
-                  (
-                  {formatCompactBalance(
-                    parseFloat(supraWrBalanceDisplay || "0")
-                  )}{" "}
+                  ({formatCompactBalance(parseFloat(supraWrBalanceDisplay || "0"))}{" "}
                   $SUPRAWR)
                 </span>
               </div>
@@ -710,14 +632,15 @@ export default function Home() {
         </div>
       )}
 
-      {/* 🖥 Rift Entry Terminal Overlay (soft gate) */}
+      {/* TERMINAL OVERLAY with new flickerOut */}
       <RiftEntryOverlay
         visible={showEntryOverlay}
+        flickerOut={terminalFlickerOut}
         onEnterGuest={handleEnterGuest}
         onClose={handleCloseEntryOverlay}
       />
 
-      {/* 🔥 Rift connect FX overlay */}
+      {/* RIFT CONNECT FX */}
       <RiftConnectOverlay visible={showRiftFx} />
     </div>
   );

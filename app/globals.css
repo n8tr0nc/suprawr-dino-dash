@@ -1,3 +1,7 @@
+html {
+  scrollbar-gutter: stable; /* prevents layout shift when overflow toggles */
+}
+
 body {
   margin: 0;
   padding: 0;

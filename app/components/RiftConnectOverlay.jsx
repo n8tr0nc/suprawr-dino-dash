@@ -8,7 +8,8 @@ export default function RiftConnectOverlay({ visible }) {
     <div className="rift-connect-overlay" aria-hidden="true">
       <div className="rift-connect-backdrop" />
       <div className="rift-connect-flash" />
-      <div className="rift-connect-ring" />
+      {/* Removed growing ring */}
+      {/* <div className="rift-connect-ring" /> */}
       <div className="rift-connect-particles" />
     </div>
   );

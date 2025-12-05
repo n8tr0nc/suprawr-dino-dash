@@ -264,8 +264,8 @@ export default function RiftEntryOverlay({
             <span className="rift-entry-status-prefix">&gt;</span>
             {isConnecting ? (
               <span>
-                Handshake in progress… syncing credentials across Primal Rift
-                nodes<span className="rift-entry-caret" />
+                Syncing creds across Primal Rift nodes. Handshake in progress… 
+                <span className="rift-entry-caret" />
               </span>
             ) : (
               <span>
@@ -281,7 +281,7 @@ export default function RiftEntryOverlay({
           onClick={handleConnectClick}
           disabled={isConnecting}
         >
-          {isConnecting ? "Syncing Starkey Wallet…" : "Sync Starkey Wallet"}
+          {isConnecting ? "Connecting Starkey Wallet…" : "Connect Starkey Wallet"}
         </button>
 
         <button
