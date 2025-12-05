@@ -188,6 +188,16 @@ async function fetchSupraNativeBalance(address) {
 }
 
 /* ------------------------------------------------------------------
+   ADDRESS SHORTENER FOR TOP-RIGHT DISPLAY
+------------------------------------------------------------------ */
+
+function shortenAddress(addr) {
+  if (!addr) return "";
+  if (addr.length <= 10) return addr;
+  return `${addr.slice(0, 4)}...${addr.slice(-4)}`;
+}
+
+/* ------------------------------------------------------------------
    TOP RIGHT BAR COMPONENT
 ------------------------------------------------------------------ */
 
@@ -370,8 +380,10 @@ export default function TopRightBar({ onToggleSidebar }) {
       ? "Connect Wallet"
       : "Disconnect";
 
-  // IMPORTANT: don't disable when Starkey isn't installed – we want the click
   const isWalletButtonDisabled = checkingAccess;
+
+  const shortAddress =
+    connected && address ? shortenAddress(address) : "";
 
   /* ------------------------------------------------------------------
      RENDER
@@ -390,14 +402,20 @@ export default function TopRightBar({ onToggleSidebar }) {
         </button>
       )}
 
-      <button
-        className="top-right-wallet-button"
-        onClick={handleWalletButtonClick}
-        disabled={isWalletButtonDisabled}
-        type="button"
-      >
-        {walletButtonLabel}
-      </button>
+      <div className="top-right-wallet-group">
+        {connected && shortAddress && (
+          <span className="top-right-wallet-address">{shortAddress}</span>
+        )}
+
+        <button
+          className="top-right-wallet-button"
+          onClick={handleWalletButtonClick}
+          disabled={isWalletButtonDisabled}
+          type="button"
+        >
+          {walletButtonLabel}
+        </button>
+      </div>
     </div>
   );
 }

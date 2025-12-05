@@ -199,7 +199,7 @@ function computeHolderRankFromDisplay(balanceDisplay) {
   return "Hatchling";
 }
 
-// -------------------- TIMESTAMP HELPERS (used in full scan) --------------------
+// -------------------- TIMESTAMP HELPERS (used in full sync) --------------------
 
 function parseTimestampValue(val) {
   if (val == null) return null;
@@ -482,11 +482,13 @@ export default function GasFeeStats() {
 
   const [showInfo, setShowInfo] = useState(false);
 
+  const [lastSyncTime, setLastSyncTime] = useState(null);
+
   // Rift Energy cooldown state
   const [cooldownEndMs, setCooldownEndMs] = useState(null);
   const [nowMs, setNowMs] = useState(Date.now());
 
-  // Have we successfully loaded stats (from cache or fresh scan)?
+  // Have we successfully loaded stats (from cache or fresh sync)?
   const [hasStats, setHasStats] = useState(false);
 
   // run id to cancel in-flight calculations on disconnect / wallet change
@@ -555,6 +557,7 @@ export default function GasFeeStats() {
           totalSupra,
           avgSupra,
           monthlyAvgSupra,
+          latestTxTimestampMs,
         } = await fetchLifetimeGasStats(addr, 100, 5000, ({ page }) => {
           // only update progress if this run is still the latest
           if (calcRunIdRef.current !== runId) return;
@@ -579,15 +582,18 @@ export default function GasFeeStats() {
         setAvgSupra(avgSupra);
         setMonthlyAvgSupra(monthlyAvgSupra);
         setHasStats(true);
+        const syncTime = latestTxTimestampMs || Date.now();
+        setLastSyncTime(syncTime);
 
         saveGasCache(addr, {
           totalTx,
           totalSupra,
           avgSupra,
           monthlyAvgSupra,
+          lastSyncTime: syncTime,
         });
 
-        // Only start Rift cooldown on user-triggered recalc, not auto initial scan
+        // Only start Rift cooldown on user-triggered recalc, not auto initial sync
         if (isManualRecalc) {
           startRiftCooldown(addr);
         }
@@ -618,21 +624,25 @@ export default function GasFeeStats() {
       const cache = loadGasCache(addr);
 
       if (!cache) {
-        // Initial scan – no cooldown
+        // Initial sync – no cooldown
         await runGasCalculationWithCache(addr, { isManualRecalc: false });
         return;
       }
+
+      const updatedAtMs =
+        typeof cache.updatedAtMs === "number" ? cache.updatedAtMs : 0;
 
       setTxCount(cache.totalTx || 0);
       setTotalSupra(cache.totalSupra || null);
       setAvgSupra(cache.avgSupra || null);
       setMonthlyAvgSupra(cache.monthlyAvgSupra || null);
+      setLastSyncTime(
+        cache.lastSyncTime != null ? cache.lastSyncTime : updatedAtMs || null
+      );
       setPagesProcessed(0);
       setProgressPercent(0);
       setHasStats(true);
 
-      const updatedAtMs =
-        typeof cache.updatedAtMs === "number" ? cache.updatedAtMs : 0;
       const cacheAgeMs = Date.now() - updatedAtMs;
 
       if (cacheAgeMs <= MAX_CACHE_AGE_MS) {
@@ -728,7 +738,7 @@ export default function GasFeeStats() {
       setConnected(!!isConnected);
       setAddress(newAddr || "");
 
-      // Reset stats for new wallet; show "No data" until its first scan
+      // Reset stats for new wallet; show "No data" until its first sync
       setTxCount(0);
       setTotalSupra(null);
       setAvgSupra(null);
@@ -736,6 +746,7 @@ export default function GasFeeStats() {
       setPagesProcessed(0);
       setProgressPercent(0);
       setHasStats(false);
+      setLastSyncTime(null);
 
       if (!isConnected || !newAddr) {
         // cancel any in-flight calc on external disconnect
@@ -886,6 +897,7 @@ export default function GasFeeStats() {
       setCheckingAccess(false);
       setCooldownEndMs(null);
       setHasStats(false);
+      setLastSyncTime(null);
     },
     [provider]
   );
@@ -945,14 +957,14 @@ export default function GasFeeStats() {
       : checkingAccess
       ? "Checking Access…"
       : hasAccess === false
-      ? "Access Denied (Need 1,000 $SUPRAWR)"
+      ? "Access Denied (1,000 $SUPRAWR Needed)"
       : calculating
-      ? "Calculating…"
+      ? "Syncing…"
       : hasStats && cooldownActive
       ? `Rift Energy Recharging… ${cooldownRemainingSeconds}s`
       : hasStats
-      ? "Recalculate Gas Fees"
-      : "Calculate Gas Fees";
+      ? "Sync Rift Data"
+      : "Sync Rift Data";
 
   const isButtonDisabled =
     connecting ||
@@ -978,37 +990,47 @@ export default function GasFeeStats() {
 
   // --- Progress bar derived display ---
   let displayProgressPercent = 0;
-  let progressLabelText = "No scan run yet.";
+  let progressLabelText = "No sync run yet.";
 
   if (calculating) {
     displayProgressPercent = Math.min(
       100,
       Math.max(0, progressPercent || 5)
     );
-    progressLabelText = `Scanning coin txs... Pages processed: ${pagesProcessed}`;
+    progressLabelText = `Syncing txs... Pages processed: ${pagesProcessed}`;
   } else if (hasStats) {
     displayProgressPercent = 100;
-    progressLabelText = "Last scan complete";
+    progressLabelText = "Last sync complete";
   } else {
     displayProgressPercent = 0;
-    progressLabelText = "No scan run yet";
+    progressLabelText = "No sync run yet";
   }
 
   // --- Rift Energy bar display ---
-  let energyProgress = 1;
-  if (cooldownActive) {
+  let energyProgress = 0;
+
+  if (!connected || !address) {
+    // Not connected: empty bar, prompt user
+    energyProgress = 0;
+  } else if (cooldownActive) {
+    // Cooldown in progress: partial fill based on remaining time
     energyProgress = cooldownProgress;
+  } else {
+    // Connected + no cooldown: fully charged
+    energyProgress = 1;
   }
 
   let riftStatusLabel;
-  if (cooldownActive) {
+  if (!connected || !address) {
+    riftStatusLabel = "Connect to charge";
+  } else if (cooldownActive) {
     riftStatusLabel = `Recharging… ${cooldownRemainingSeconds}s`;
-  } else if (connected && hasAccess && hasStats) {
+  } else if (hasAccess && hasStats) {
     riftStatusLabel = "Full";
-  } else if (connected && hasAccess) {
-    riftStatusLabel = "Ready to run first scan";
+  } else if (hasAccess) {
+    riftStatusLabel = "Ready to run first sync";
   } else {
-    riftStatusLabel = "Full - Connect wallet to use";
+    riftStatusLabel = "Full";
   }
 
   const formattedTxCount =
@@ -1046,10 +1068,31 @@ export default function GasFeeStats() {
     isEnergyFull ? " rift-energy-bar--full" : ""
   }`;
 
-  const isProgressFull = !calculating && hasStats && displayProgressPercent >= 100;
+  const isProgressFull =
+    !calculating && hasStats && displayProgressPercent >= 100;
   const progressBarClassName = `progress-bar${
     isProgressFull ? " progress-bar--full" : ""
   }`;
+
+  // Timestamp helper + label builder
+  function formatTimestamp(ms) {
+    if (!ms) return "";
+    const d = new Date(ms);
+    return (
+      d.toLocaleString("en-US", {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "UTC",
+      }) + " UTC"
+    );
+  }
+
+  const lastSyncLabel =
+    progressLabelText === "Last sync complete" && lastSyncTime
+      ? `${progressLabelText} – ${formatTimestamp(lastSyncTime)}`
+      : progressLabelText;
 
   return (
     <>
@@ -1063,7 +1106,9 @@ export default function GasFeeStats() {
             i
           </button>
 
-          <span className="dashboard-panel-pill">Powered by Supra RPC & Rift Energy</span>
+          <span className="dashboard-panel-pill">
+            Powered by Supra RPC & Rift Energy
+          </span>
         </div>
 
         {showInfo && (
@@ -1118,14 +1163,14 @@ export default function GasFeeStats() {
                 <p>
                   To improve performance, the tool{" "}
                   <strong>
-                    automatically scans and calculates when you connect your
+                    automatically syncs and calculates when you connect your
                     wallet
                   </strong>
                   , then <strong>caches results for 24 hours</strong>.
                   Reconnecting within that window shows cached values
-                  instantly. After 24 hours, a fresh scan runs automatically.
-                  You can also manually force a new scan using{" "}
-                  <strong>Recalculate Gas Fees</strong>.
+                  instantly. After 24 hours, a fresh sync runs automatically.
+                  You can also manually force a new sync using{" "}
+                  <strong>Sync Rift Data</strong>.
                 </p>
               </div>
             </div>
@@ -1172,9 +1217,13 @@ export default function GasFeeStats() {
           </div>
         </div>
 
-        {/* Progress bar – always visible */}
+        {/* Rift Sync bar – always visible */}
         <div className="progress-wrapper">
-          <div className="progress-label">{progressLabelText}</div>
+          <div className="progress-header">
+            <span className="progress-title">Rift Sync</span>
+            <span className="progress-status">{lastSyncLabel}</span>
+          </div>
+
           <div className={progressBarClassName}>
             <div
               className="progress-bar-fill"
@@ -1188,7 +1237,7 @@ export default function GasFeeStats() {
         {connected && hasAccess && !error && (
           <div className="results">
             <div className="result-row">
-              <span className="result-label">$SUPRA txs scanned</span>
+              <span className="result-label">$SUPRA txs synced</span>
               <span className="result-value">
                 {hasStats ? formattedTxCount : "No data"}
               </span>

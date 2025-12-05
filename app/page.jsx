@@ -3,6 +3,8 @@
 import React, { useEffect, useState, useRef } from "react";
 import TopRightBar from "./components/TopRightBar";
 import GasFeeStats from "./components/GasFeeStats";
+import RiftConnectOverlay from "./components/RiftConnectOverlay";
+import RiftEntryOverlay from "./components/RiftEntryOverlay";
 
 /* Simple compact format for sidebar display */
 function formatCompactBalance(raw) {
@@ -59,12 +61,27 @@ export default function Home() {
   // run id so disconnect cancels any sidebar refresh in progress
   const refreshRunIdRef = useRef(0);
 
+  // Rift connect FX (center shockwave)
+  const [showRiftFx, setShowRiftFx] = useState(false);
+  const riftFxTimeoutRef = useRef(null);
+
+  // Rift Entry Terminal overlay (soft gate)
+  const [showEntryOverlay, setShowEntryOverlay] = useState(true);
+
   const toggleSidebar = () => {
     setIsSidebarOpen((prev) => !prev);
   };
 
   const closeSidebar = () => {
     setIsSidebarOpen(false);
+  };
+
+  const handleEnterGuest = () => {
+    setShowEntryOverlay(false);
+  };
+
+  const handleCloseEntryOverlay = () => {
+    setShowEntryOverlay(false);
   };
 
   /* Listen for tier updates sent from TopRightBar */
@@ -90,8 +107,19 @@ export default function Home() {
 
     function handleWalletChange(event) {
       const { address, connected } = event.detail || {};
+
       if (connected && address) {
         setCurrentAddress(address);
+
+        // 🔥 Trigger Rift connect FX on every successful connect
+        setShowRiftFx(true);
+        if (riftFxTimeoutRef.current) {
+          clearTimeout(riftFxTimeoutRef.current);
+        }
+        riftFxTimeoutRef.current = setTimeout(() => {
+          setShowRiftFx(false);
+          riftFxTimeoutRef.current = null;
+        }, 1800);
 
         // Fetch burned SUPRAWR total
         (async () => {
@@ -143,12 +171,26 @@ export default function Home() {
         setSupraUsdPrice(null);
         setBurnTotal(null);
         setBurnLoading(false);
+
+        // stop any in-flight Rift FX if user disconnects
+        if (riftFxTimeoutRef.current) {
+          clearTimeout(riftFxTimeoutRef.current);
+          riftFxTimeoutRef.current = null;
+        }
+        setShowRiftFx(false);
+
+        // Return to terminal on disconnect
+        setShowEntryOverlay(true);
       }
     }
 
     window.addEventListener("suprawr:walletChange", handleWalletChange);
     return () => {
       window.removeEventListener("suprawr:walletChange", handleWalletChange);
+      // cleanup any leftover FX timer on unmount
+      if (riftFxTimeoutRef.current) {
+        clearTimeout(riftFxTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -273,7 +315,11 @@ export default function Home() {
     (refreshingBalances || burnLoading || burnTotal === null);
 
   return (
-    <div className={`dashboard-shell ${isSidebarOpen ? "sidebar-open" : ""}`}>
+    <div
+      className={`dashboard-shell ${
+        isSidebarOpen ? "sidebar-open" : ""
+      } ${showRiftFx ? "rift-ripple-active" : ""}`}
+    >
       {/* LEFT SIDEBAR */}
       <aside
         className={`dashboard-sidebar ${
@@ -514,8 +560,16 @@ export default function Home() {
 
           <div className="dashboard-side-column">
             <section className="dashboard-panel">
-              <a href="https://suprawr.com" target="_blank" rel="noopener noreferrer">
-                <img src="./poster-airdrop-004.webp" alt="Graduation Airdrop Poster" className="poster-001" />
+              <a
+                href="https://suprawr.com"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <img
+                  src="./poster-airdrop-004.webp"
+                  alt="Graduation Airdrop Poster"
+                  className="poster-001"
+                />
               </a>
             </section>
           </div>
@@ -629,6 +683,16 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      {/* 🖥 Rift Entry Terminal Overlay (soft gate) */}
+      <RiftEntryOverlay
+        visible={showEntryOverlay}
+        onEnterGuest={handleEnterGuest}
+        onClose={handleCloseEntryOverlay}
+      />
+
+      {/* 🔥 Rift connect FX overlay */}
+      <RiftConnectOverlay visible={showRiftFx} />
     </div>
   );
 }
