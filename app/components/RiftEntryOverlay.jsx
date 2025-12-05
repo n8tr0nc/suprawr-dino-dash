@@ -170,10 +170,109 @@ export default function RiftEntryOverlay({
   return (
     <div className={overlayClass}>
       <div className="rift-entry-noise" />
+      <div className="rift-entry-reticle" />
+
+      {/* HUD LORE PANELS (corner terminals) */}
+      <div className="rift-entry-hud rift-entry-hud--tl">
+        <div className="rift-entry-hud-inner">
+          <div className="rift-entry-hud-title">ORIGIN COORDS //</div>
+          <div className="rift-entry-hud-row">
+            <span className="rift-entry-hud-key">Dimension</span>
+            <span className="rift-entry-hud-value">The Primal Rift</span>
+          </div>
+          <div className="rift-entry-hud-row">
+            <span className="rift-entry-hud-key">Galaxy</span>
+            <span className="rift-entry-hud-value">Aetherion Spiral</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="rift-entry-hud rift-entry-hud--tr">
+        <div className="rift-entry-hud-inner">
+          <div className="rift-entry-hud-title">STELLAR LOCK //</div>
+          <div className="rift-entry-hud-row">
+            <span className="rift-entry-hud-key">System</span>
+            <span className="rift-entry-hud-value">D-88 Draxion Cluster</span>
+          </div>
+          <div className="rift-entry-hud-row">
+            <span className="rift-entry-hud-key">World</span>
+            <span className="rift-entry-hud-value">Rawrion Prime</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="rift-entry-hud rift-entry-hud--bl">
+        <div className="rift-entry-hud-inner">
+          <div className="rift-entry-hud-title">RIFT SUBSTRATE //</div>
+          <div className="rift-entry-hud-row">
+            <span className="rift-entry-hud-key">Crystals</span>
+            <span className="rift-entry-hud-value">Rift Crystals · Tri-Moon</span>
+          </div>
+          <div className="rift-entry-hud-row">
+            <span className="rift-entry-hud-key">Chain</span>
+            <span className="rift-entry-hud-value">
+              SUPRA · Quantum-stable data flow
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="rift-entry-hud rift-entry-hud--br">
+        <div className="rift-entry-hud-inner">
+          <div className="rift-entry-hud-title">SUPRAWR SIGNATURE //</div>
+          <div className="rift-entry-hud-row">
+            <span className="rift-entry-hud-key">Credential</span>
+            <span className="rift-entry-hud-value">
+              $SUPRAWR access token
+            </span>
+          </div>
+          <div className="rift-entry-hud-row">
+            <span className="rift-entry-hud-key">Access scope</span>
+            <span className="rift-entry-hud-value">DinoDash telemetry</span>
+          </div>
+        </div>
+      </div>
+
+      {/* CENTRAL HANDSHAKE TERMINAL */}
       <div className="rift-entry-panel">
-        <div className="rift-entry-title">RIFT ACCESS TERMINAL</div>
-        <div className="rift-entry-subtitle">
-          Connect your Starkey wallet to sync with the Dino Dash.
+        <div className="rift-entry-header">
+          <img
+            src="/suprawr001.webp"
+            alt="SUPRAWR Dino"
+            className="rift-entry-logo"
+          />
+          <div className="rift-entry-brand">
+            <span className="rift-entry-brand-main">
+              SUPRAWR CREW // RIFT ACCESS TERMINAL
+            </span>
+            <span className="rift-entry-brand-sub">
+              Super Unified Primal Rift Architecture · Supra mainnet mirror
+            </span>
+          </div>
+        </div>
+
+        <div className="rift-entry-status-block">
+          <div className="rift-entry-status-line">
+            <span className="rift-entry-status-prefix">&gt;</span>
+            <span> SUPRA link online. Rift channels stabilized.</span>
+          </div>
+          <div className="rift-entry-status-line">
+            <span className="rift-entry-status-prefix">&gt;</span>
+            <span> Awaiting Starkey identity signature bound to $SUPRAWR DNA.</span>
+          </div>
+          <div className="rift-entry-status-line">
+            <span className="rift-entry-status-prefix">&gt;</span>
+            {isConnecting ? (
+              <span>
+                Handshake in progress… syncing credentials across Primal Rift
+                nodes<span className="rift-entry-caret" />
+              </span>
+            ) : (
+              <span>
+                Connect wallet to unlock fleet telemetry and personal gas logs.
+              </span>
+            )}
+          </div>
         </div>
 
         <button
@@ -182,7 +281,7 @@ export default function RiftEntryOverlay({
           onClick={handleConnectClick}
           disabled={isConnecting}
         >
-          {isConnecting ? "Connecting…" : "Connect StarKey Wallet"}
+          {isConnecting ? "Syncing Starkey Wallet…" : "Sync Starkey Wallet"}
         </button>
 
         <button
@@ -190,13 +289,14 @@ export default function RiftEntryOverlay({
           className="rift-entry-guest"
           onClick={handleGuestClick}
         >
-          Enter as guest
+          Enter as guest (no telemetry · no $SUPRAWR signature)
         </button>
 
-        <div className="rift-entry-footnote">
-          You can always connect later from the top-right wallet button or
-          inside the Gas Tracker card.
-        </div>
+        {/*<div className="rift-entry-footnote">
+          Guest mode shows Dino Dash analytics without signing any transactions.
+          Connect later from the top-right wallet button to bind this terminal
+          to your fleet identity.
+        </div>*/}
       </div>
     </div>
   );

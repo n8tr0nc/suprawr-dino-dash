@@ -416,7 +416,6 @@ function saveGasCache(address, payload) {
 
 // -------------------- RIFT ENERGY COOLDOWN HELPERS --------------------
 
-// NOTE: currently 1-minute cooldown as in your file
 const COOLDOWN_MS = 60_000;
 const RIFT_COOLDOWN_PREFIX = "suprawr_rift_cd_v1:";
 
@@ -483,6 +482,16 @@ export default function GasFeeStats() {
   const [showInfo, setShowInfo] = useState(false);
 
   const [lastSyncTime, setLastSyncTime] = useState(null);
+
+  // Rift Energy animation state (0 → 1) for charge-up
+  const [energyAnim, setEnergyAnim] = useState(0);
+
+  // Rift Energy drain state (1 → 0) when sync starts
+  const [isDraining, setIsDraining] = useState(false);
+  const [drainValue, setDrainValue] = useState(1);
+
+  // Track when a manual recalc is in-flight, so we can keep bar empty
+  const [manualSyncActive, setManualSyncActive] = useState(false);
 
   // Rift Energy cooldown state
   const [cooldownEndMs, setCooldownEndMs] = useState(null);
@@ -559,7 +568,6 @@ export default function GasFeeStats() {
           monthlyAvgSupra,
           latestTxTimestampMs,
         } = await fetchLifetimeGasStats(addr, 100, 5000, ({ page }) => {
-          // only update progress if this run is still the latest
           if (calcRunIdRef.current !== runId) return;
           setPagesProcessed(page);
           setProgressPercent((prev) => {
@@ -568,7 +576,6 @@ export default function GasFeeStats() {
           });
         });
 
-        // If a newer run/ disconnect happened, drop results
         if (calcRunIdRef.current !== runId) {
           return;
         }
@@ -593,7 +600,6 @@ export default function GasFeeStats() {
           lastSyncTime: syncTime,
         });
 
-        // Only start Rift cooldown on user-triggered recalc, not auto initial sync
         if (isManualRecalc) {
           startRiftCooldown(addr);
         }
@@ -604,15 +610,15 @@ export default function GasFeeStats() {
         );
         setProgressPercent(0);
         setPagesProcessed(0);
-        // Keep any previous stats visible if they existed
       } finally {
         setCalculating(false);
+        setIsDraining(false);
+        setManualSyncActive(false); // allow cooldown to take over
       }
     },
     [startRiftCooldown]
   );
 
-  // Single source of truth: access + cache + TTL-based maybe calc
   const runAccessAndMaybeCalc = useCallback(
     async (addr) => {
       if (!addr) return;
@@ -624,7 +630,6 @@ export default function GasFeeStats() {
       const cache = loadGasCache(addr);
 
       if (!cache) {
-        // Initial sync – no cooldown
         await runGasCalculationWithCache(addr, { isManualRecalc: false });
         return;
       }
@@ -649,7 +654,6 @@ export default function GasFeeStats() {
         return;
       }
 
-      // TTL expired – keep existing stats visible, refresh in place
       await runGasCalculationWithCache(addr, { isManualRecalc: false });
     },
     [runAccessCheck, runGasCalculationWithCache]
@@ -724,7 +728,7 @@ export default function GasFeeStats() {
     };
   }, []);
 
-  // Listen for global wallet change events (TopRightBar, etc.)
+  // Global wallet change listener
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -738,7 +742,6 @@ export default function GasFeeStats() {
       setConnected(!!isConnected);
       setAddress(newAddr || "");
 
-      // Reset stats for new wallet; show "No data" until its first sync
       setTxCount(0);
       setTotalSupra(null);
       setAvgSupra(null);
@@ -748,14 +751,17 @@ export default function GasFeeStats() {
       setHasStats(false);
       setLastSyncTime(null);
 
+      setIsDraining(false);
+      setDrainValue(1);
+      setManualSyncActive(false);
+
       if (!isConnected || !newAddr) {
-        // cancel any in-flight calc on external disconnect
         calcRunIdRef.current++;
         setHasAccess(null);
         setSupraWrBalanceDisplay(null);
         setHolderRank(null);
         setError("");
-        setCooldownEndMs(null); // no active wallet, no active cooldown
+        setCooldownEndMs(null);
       } else {
         runAccessAndMaybeCalc(newAddr);
       }
@@ -767,7 +773,7 @@ export default function GasFeeStats() {
     };
   }, [address, connected, runAccessAndMaybeCalc]);
 
-  // Load Rift cooldown when address changes (per wallet)
+  // Load Rift cooldown when address changes
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -804,6 +810,71 @@ export default function GasFeeStats() {
       window.clearInterval(id);
     };
   }, [cooldownEndMs]);
+
+  // Animate Rift Energy when wallet is connected, has an address, and is NOT cooling down
+  useEffect(() => {
+    if (!connected || !address) {
+      setEnergyAnim(0);
+      return;
+    }
+
+    // If cooldown is active → do NOT animate or reset, just hold
+    if (cooldownEndMs && cooldownEndMs > Date.now()) {
+      return;
+    }
+
+    let rafId;
+    const duration = 400; // ms, quick charge-up
+
+    setEnergyAnim(0);
+
+    const start = performance.now();
+
+    const step = (now) => {
+      const elapsed = now - start;
+      const t = Math.min(1, elapsed / duration); // 0 → 1
+      setEnergyAnim(t);
+      if (t < 1) {
+        rafId = requestAnimationFrame(step);
+      }
+    };
+
+    rafId = requestAnimationFrame(step);
+
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, [connected, address, cooldownEndMs]);
+
+  // Drain animation: 1 → 0 over ~3s when manual sync starts
+  useEffect(() => {
+    if (!isDraining) return;
+
+    let rafId;
+    const duration = 3000; // 3 seconds
+
+    setDrainValue(1);
+    const start = performance.now();
+
+    const step = (now) => {
+      const elapsed = now - start;
+      const t = Math.min(1, elapsed / duration); // 0 → 1
+      const v = 1 - t; // 1 → 0
+      setDrainValue(v);
+      if (t < 1) {
+        rafId = requestAnimationFrame(step);
+      } else {
+        setDrainValue(0);
+        setIsDraining(false);
+      }
+    };
+
+    rafId = requestAnimationFrame(step);
+
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, [isDraining]);
 
   const handleAction = useCallback(
     async () => {
@@ -853,8 +924,13 @@ export default function GasFeeStats() {
       const allowed = await runAccessCheck(address);
       if (!allowed) return;
 
-      // Manual action: if we already have results, this is a recalc
       const isManualRecalc = !!hasStats;
+
+      if (isManualRecalc) {
+        setManualSyncActive(true);
+        setIsDraining(true);
+        setDrainValue(1);
+      }
 
       await runGasCalculationWithCache(address, { isManualRecalc });
     },
@@ -872,7 +948,6 @@ export default function GasFeeStats() {
   const handleDisconnect = useCallback(
     async () => {
       setError("");
-      // invalidate any in-flight calculations
       calcRunIdRef.current++;
 
       await disconnectWallet(provider);
@@ -898,6 +973,9 @@ export default function GasFeeStats() {
       setCooldownEndMs(null);
       setHasStats(false);
       setLastSyncTime(null);
+      setIsDraining(false);
+      setDrainValue(1);
+      setManualSyncActive(false);
     },
     [provider]
   );
@@ -1010,19 +1088,28 @@ export default function GasFeeStats() {
   let energyProgress = 0;
 
   if (!connected || !address) {
-    // Not connected: empty bar, prompt user
+    energyProgress = 0;
+  } else if (isDraining) {
+    // During drain animation
+    energyProgress = Math.max(0, Math.min(1, drainValue));
+  } else if (manualSyncActive && calculating) {
+    // Drain finished but manual sync still running → stay empty
     energyProgress = 0;
   } else if (cooldownActive) {
-    // Cooldown in progress: partial fill based on remaining time
+    // Cooldown: slowly refill over 60s
     energyProgress = cooldownProgress;
   } else {
-    // Connected + no cooldown: fully charged
-    energyProgress = 1;
+    // Idle / just connected: quick charge-up animation
+    energyProgress = Math.min(1, Math.max(0, energyAnim));
   }
 
   let riftStatusLabel;
   if (!connected || !address) {
     riftStatusLabel = "Connect to charge";
+  } else if (isDraining) {
+    riftStatusLabel = drainValue <= 0.01 ? "Empty" : "Draining…";
+  } else if (manualSyncActive && calculating) {
+    riftStatusLabel = "Empty";
   } else if (cooldownActive) {
     riftStatusLabel = `Recharging… ${cooldownRemainingSeconds}s`;
   } else if (hasAccess && hasStats) {
@@ -1062,8 +1149,8 @@ export default function GasFeeStats() {
     }
   }
 
-  // --- FULL-BAR GLOW FLAGS ---
-  const isEnergyFull = !cooldownActive && energyProgress >= 0.999;
+  const isEnergyFull =
+    !cooldownActive && !isDraining && !manualSyncActive && energyProgress >= 0.999;
   const riftBarClassName = `rift-energy-bar${
     isEnergyFull ? " rift-energy-bar--full" : ""
   }`;
@@ -1074,7 +1161,6 @@ export default function GasFeeStats() {
     isProgressFull ? " progress-bar--full" : ""
   }`;
 
-  // Timestamp helper + label builder
   function formatTimestamp(ms) {
     if (!ms) return "";
     const d = new Date(ms);

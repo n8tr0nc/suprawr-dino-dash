@@ -68,6 +68,10 @@ export default function Home() {
   // Rift Entry Terminal overlay (soft gate)
   const [showEntryOverlay, setShowEntryOverlay] = useState(true);
 
+  // Fade-out state when disconnecting back to terminal
+  const [isFadingToTerminal, setIsFadingToTerminal] = useState(false);
+  const fadeTimeoutRef = useRef(null);
+
   const toggleSidebar = () => {
     setIsSidebarOpen((prev) => !prev);
   };
@@ -109,6 +113,13 @@ export default function Home() {
       const { address, connected } = event.detail || {};
 
       if (connected && address) {
+        // Any active fade-to-terminal should be cancelled on connect
+        if (fadeTimeoutRef.current) {
+          clearTimeout(fadeTimeoutRef.current);
+          fadeTimeoutRef.current = null;
+        }
+        setIsFadingToTerminal(false);
+
         setCurrentAddress(address);
 
         // 🔥 Trigger Rift connect FX on every successful connect
@@ -179,17 +190,32 @@ export default function Home() {
         }
         setShowRiftFx(false);
 
-        // Return to terminal on disconnect
-        setShowEntryOverlay(true);
+        // Cancel any existing fade timers before starting a new one
+        if (fadeTimeoutRef.current) {
+          clearTimeout(fadeTimeoutRef.current);
+          fadeTimeoutRef.current = null;
+        }
+
+        // Trigger page fade-out, then show terminal overlay
+        setIsFadingToTerminal(true);
+        fadeTimeoutRef.current = setTimeout(() => {
+          setShowEntryOverlay(true);
+          setIsFadingToTerminal(false);
+          fadeTimeoutRef.current = null;
+        }, 500); // match CSS transition duration
       }
     }
 
     window.addEventListener("suprawr:walletChange", handleWalletChange);
     return () => {
       window.removeEventListener("suprawr:walletChange", handleWalletChange);
+
       // cleanup any leftover FX timer on unmount
       if (riftFxTimeoutRef.current) {
         clearTimeout(riftFxTimeoutRef.current);
+      }
+      if (fadeTimeoutRef.current) {
+        clearTimeout(fadeTimeoutRef.current);
       }
     };
   }, []);
@@ -238,9 +264,7 @@ export default function Home() {
         fetch(
           `/api/suprawr-balance?address=${encodeURIComponent(currentAddress)}`
         ),
-        fetch(
-          `/api/burn-total?address=${encodeURIComponent(currentAddress)}`
-        ),
+        fetch(`/api/burn-total?address=${encodeURIComponent(currentAddress)}`),
       ]);
 
       // if disconnect happened while these were in flight, drop results
@@ -318,7 +342,9 @@ export default function Home() {
     <div
       className={`dashboard-shell ${
         isSidebarOpen ? "sidebar-open" : ""
-      } ${showRiftFx ? "rift-ripple-active" : ""}`}
+      } ${showRiftFx ? "rift-ripple-active" : ""} ${
+        isFadingToTerminal ? "dashboard-shell--fading-out" : ""
+      }`}
     >
       {/* LEFT SIDEBAR */}
       <aside
