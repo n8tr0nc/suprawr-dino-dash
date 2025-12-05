@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
-import { fetchSupraWrAccess } from "./TokenGate";
+import { fetchSupraWrAccess } from "../../../features/token-gate/TokenGate";
 
 /* ------------------------------------------------------------------
    PROVIDER + NORMALIZATION UTILITIES (shared with GasFeeStats)

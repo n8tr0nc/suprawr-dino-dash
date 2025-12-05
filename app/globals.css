@@ -107,3 +107,10 @@ p {
   font-size: 0.9rem;
   opacity: 0.8;
 }
+
+code {
+  font-family: monospace;
+  font-size: 0.78rem;
+  color: #feeecd;
+  font-weight: bold;
+}

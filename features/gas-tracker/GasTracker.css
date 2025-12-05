@@ -1,0 +1,317 @@
+/* GAS TRACKER CARD + HEADER */
+.gas-card {
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  max-width: 100%;
+  width: 100%;
+  box-shadow: none;
+  border: none;
+  color: #30d630;
+  text-align: left;
+}
+
+.gas-icon {
+  padding-right: 8px;
+}
+
+.gas-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.gas-header-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.gas-logo img {
+  width: 42px;
+  height: 42px;
+}
+
+.gas-title {
+  font-family: monospace;
+  font-size: 1.6rem;
+  font-weight: 800;
+  margin: 0;
+  color: #feeecd;
+  letter-spacing: 0.04em;
+}
+
+.gas-subtitle {
+  margin: 0.25rem 0 0;
+  font-size: 0.92rem;
+  opacity: 0.9;
+  color: #feeecd;
+}
+
+.gas-subtitle strong {
+  font-weight: 700;
+  color: #feeecd;
+}
+
+/* FORM FIELDS INSIDE GAS TRACKER */
+.field-block {
+  margin-top: 1.5rem;
+  margin-bottom: 1rem;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.field-label {
+  display: block;
+  font-size: 0.9rem;
+  margin-bottom: 0.4rem;
+  opacity: 0.9;
+  width: 100%;
+  padding: 0 0.4rem;
+  color: #feeecd;
+}
+
+.field-input {
+  width: 100%;
+  padding: 0.75rem 0.9rem;
+  border-radius: 2px;
+  border: 1px solid #111111;
+  background: #222222;
+  color: #30d630;
+  font-family: monospace;
+  font-size: 0.95rem;
+}
+
+.field-input::placeholder {
+  color: #30d630;
+  opacity: 0.7;
+}
+
+.field-input:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* MAIN CALCULATE BUTTON */
+.primary-button {
+  width: 100%;
+  padding: 0.9rem 1rem;
+  background: transparent;
+  border-radius: 2px;
+  font-family: "Oxanium", system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid #7ae97a;
+  color: #7ae97a;
+  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease,
+    transform 0.08s ease;
+}
+
+.primary-button:hover:not(:disabled) {
+  background: transparent;
+  box-shadow: 0 0 8px #c3ffc3;
+  text-shadow: 0 0 8px #c3ffc3;
+  color: #c3ffc3;
+  border: 1px solid #c3ffc3;
+}
+
+.primary-button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+  box-shadow: none;
+  background: transparent;
+}
+
+/* GAS PROGRESS BAR */
+.progress-wrapper {
+  margin-top: 1rem;
+}
+
+.progress-label {
+  text-transform: uppercase;
+  letter-spacing: 0;
+  font-weight: 600;
+  color: #feeecd;
+  margin-bottom: 0.3rem;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: #111111;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background-image: linear-gradient(90deg, #30d630, #b39628);
+  transition: width 0.18s ease-out;
+}
+
+/* RESULT BLOCK */
+.results {
+  margin-top: 1.25rem;
+  font-size: 0.85rem;
+  color: #feeecd;
+}
+
+.result-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0.2rem 0;
+  border-bottom: 1px solid #0e2713;
+  padding-bottom: 0.35rem;
+}
+
+.result-row:last-child {
+  border-bottom: none;
+}
+
+.result-label {
+  opacity: 0.9;
+}
+
+.result-value {
+  font-weight: 600;
+  font-family: monospace;
+  text-align: right;
+  white-space: nowrap;
+  color: #30d630;
+}
+
+.note {
+  margin-top: 1.5rem;
+  font-size: 0.78rem;
+  opacity: 0.8;
+  color: #feeecd;
+}
+
+/* RIFT ENERGY RECHARGE (PART OF GAS TRACKER PANEL) */
+.rift-energy-wrapper {
+  margin-top: 1rem;
+}
+
+.rift-energy-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.3rem;
+  font-size: 0.8rem;
+  color: #feeecd;
+}
+
+.rift-energy-title {
+  text-transform: uppercase;
+  letter-spacing: 0;
+  font-weight: 600;
+  color: #feeecd;
+}
+
+.rift-energy-status {
+  font-family: monospace;
+  color: #30d630;
+  white-space: nowrap;
+}
+
+.rift-energy-bar {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: #111111;
+  overflow: hidden;
+}
+
+.rift-energy-bar-fill {
+  height: 100%;
+  background-image: linear-gradient(90deg, #d5502c, #b39628);
+  transition: width 0.18s ease-out;
+}
+
+/* FULL-BAR GLOW + PROGRESS HEADER (USED BY GAS + RIFT ENERGY) */
+.rift-energy-bar--full {
+  box-shadow: 0 0 8px #d5502c;
+}
+
+.progress-bar--full {
+  box-shadow: 0 0 8px #30d630;
+}
+
+.progress-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.3rem;
+  font-size: 0.8rem;
+  color: #feeecd;
+}
+
+.progress-title {
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: #feeecd;
+}
+
+.progress-status {
+  font-family: monospace;
+  color: #30d630;
+  white-space: nowrap;
+}
+
+/* Error alert inside Gas Tracker */
+.alert.error {
+  margin-top: 1rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 2px;
+  border: 1px solid #d5502c;
+  color: #d5502c;
+  font-size: 0.9rem;
+}
+
+/* Info button in Gas Tracker header */
+.gas-card .gas-info-button {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid #7ae97a;
+  background: transparent;
+  color: #7ae97a;
+  font-family: monospace;
+  font-size: 0.95rem;
+  font-weight: 700;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: none;
+  line-height: 1;
+  transition: background 0.2s ease, color 0.1s ease, box-shadow 0.2s ease,
+    transform 0.08s ease;
+}
+
+.gas-card .gas-info-button:hover:not(:disabled) {
+  background: transparent;
+  color: #c3ffc3;
+  box-shadow: 0 0 8px #c3ffc3;
+}
+
+.gas-card .gas-info-button:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.gas-card .gas-info-button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+  box-shadow: none;
+}

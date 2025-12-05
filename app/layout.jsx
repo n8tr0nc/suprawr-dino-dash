@@ -1,6 +1,5 @@
 // app/layout.jsx
 import "./globals.css";
-import "./gas.css";
 
 // Load Google Fonts using next/font for best performance.
 // These match your existing Oxanium (titles) + Roboto (body) setup.

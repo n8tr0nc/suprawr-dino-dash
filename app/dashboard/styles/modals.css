@@ -1,0 +1,82 @@
+/* =========================
+   SHARED MODAL-001 (tier + gas)
+   ========================= */
+
+.modal-001-overlay,
+.tier-modal-overlay,
+.gas-info-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.modal-001,
+.tier-modal,
+.gas-info-modal {
+  background: #001600;
+  border-radius: 2px;
+  border: 1px solid #30d630;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 0 20px #30d630;
+  color: #feeecd;
+  font-family: monospace;
+  padding: 1.25rem 1.5rem;
+}
+
+.modal-001-header,
+.tier-modal-header,
+.gas-info-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.modal-001-title,
+.tier-modal-title,
+.gas-info-title {
+  margin: 0;
+  font-size: 1.1rem;
+  letter-spacing: 0;
+  color: #c3ffc3;
+}
+
+.modal-001-close,
+.tier-modal-close,
+.gas-info-close {
+  background: transparent;
+  border: none;
+  color: #30d630;
+  font-size: 1.4rem;
+  cursor: pointer;
+  padding: 0 0.4rem;
+  transition: color 0.2s ease, text-shadow 0.2s ease;
+}
+
+.modal-001-close:hover,
+.tier-modal-close:hover,
+.gas-info-close:hover {
+  color: #7ae97a;
+  background-color: transparent;
+  text-shadow: 0 0 4px #7ae97a;
+  box-shadow: none;
+}
+
+.modal-001-body,
+.tier-modal-body,
+.gas-info-body p {
+  font-size: 0.9rem;
+}
+
+.modal-001-body code,
+.gas-info-body code {
+  font-size: 0.9rem;
+  color: #30d630;
+}

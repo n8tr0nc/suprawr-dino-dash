@@ -1,0 +1,570 @@
+/* =========================
+   RIFT CONNECT FX (center-origin)
+   ========================= */
+
+.rift-connect-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none; /* don't block clicks */
+  z-index: 80; /* above modals */
+  overflow: hidden;
+}
+
+.rift-connect-backdrop {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at center,
+    rgba(0, 0, 0, 0) 0%,
+    rgba(0, 0, 0, 0.6) 55%,
+    rgba(0, 0, 0, 0.85) 100%
+  );
+  opacity: 0;
+  animation: rift-backdrop-fade 1.6s ease-out forwards;
+}
+
+.rift-connect-flash {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 260px;
+  height: 260px;
+  margin-left: -130px;
+  margin-top: -130px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    #ffe7c0 0%,
+    #d5502c 35%,
+    rgba(213, 80, 44, 0) 70%
+  );
+  opacity: 0;
+  animation: rift-flash-pulse 0.28s ease-out forwards;
+}
+
+/* Static glowing Rift ring (no expansion animation) 
+.rift-connect-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 260px;
+  height: 260px;
+  margin-left: -130px;
+  margin-top: -130px;
+  border-radius: 50%;
+  border: 2px solid rgba(213, 80, 44, 0.45);
+  box-shadow: 0 0 18px rgba(213, 80, 44, 0.55), 0 0 32px rgba(213, 80, 44, 0.35),
+    inset 0 0 18px rgba(213, 80, 44, 0.25);
+  opacity: 0.9;
+  animation: none !important;
+}*/
+
+.rift-connect-particles {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(
+      circle at 20% 30%,
+      rgba(255, 230, 180, 0.14) 0,
+      transparent 40%
+    ),
+    radial-gradient(
+      circle at 80% 70%,
+      rgba(48, 214, 48, 0.18) 0,
+      transparent 45%
+    );
+  mix-blend-mode: screen;
+  opacity: 0;
+  animation: rift-particles-fade 1.4s ease-out 0.25s forwards;
+}
+
+@keyframes rift-backdrop-fade {
+  0% {
+    opacity: 1;
+  }
+  20% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes rift-flash-pulse {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  30% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.4);
+    opacity: 0;
+  }
+}
+
+@keyframes rift-ring-expand {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.95;
+  }
+  40% {
+    opacity: 1;
+  }
+  100% {
+    transform: scale(8);
+    opacity: 0;
+  }
+}
+
+@keyframes rift-particles-fade {
+  0% {
+    opacity: 0;
+    transform: scale(1);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.05);
+  }
+}
+
+/* =========================
+   RIFT ENTRY TERMINAL OVERLAY
+   ========================= */
+
+.rift-entry-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70; /* below rift-connect-overlay (80), above everything else */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at center, #020805 0, #000000 70%);
+  overflow: hidden;
+  pointer-events: auto;
+}
+
+/* EXIT: inner terminals flicker out, then overlay fades */
+.rift-entry-overlay--exiting {
+  animation: rift-terminal-overlay-fade 0.7s ease-out forwards;
+}
+
+.rift-entry-overlay--exiting .rift-entry-panel,
+.rift-entry-overlay--exiting .rift-entry-hud {
+  animation: rift-terminal-elements-flicker 0.38s steps(3, end) forwards;
+}
+
+/* subtle CRT noise layer */
+.rift-entry-noise {
+  position: absolute;
+  inset: 0;
+  opacity: 0.13;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.08),
+      rgba(255, 255, 255, 0.08) 1px,
+      transparent 1px,
+      transparent 3px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(0, 255, 150, 0.06),
+      rgba(0, 255, 150, 0.06) 1px,
+      transparent 1px,
+      transparent 4px
+    );
+  mix-blend-mode: screen;
+  animation: rift-noise-shift 3s linear infinite;
+}
+
+/* faint central targeting reticle */
+.rift-entry-reticle {
+  position: absolute;
+  inset: 12%;
+  border-radius: 50%;
+  border: 1px dashed rgba(48, 214, 48, 0.22);
+  box-shadow: 0 0 30px rgba(48, 214, 48, 0.2);
+  pointer-events: none;
+  opacity: 0.65;
+}
+
+/* central handshake terminal */
+
+.rift-entry-panel {
+  position: fixed;
+  z-index: 4;
+  max-width: 520px;
+  width: 100%;
+  margin: 0 20px;
+  padding: 1.8rem 2rem 1.7rem;
+  background: radial-gradient(circle at top, #05140a 0%, #010503 70%),
+    repeating-linear-gradient(
+      0deg,
+      rgba(0, 255, 140, 0.06),
+      rgba(0, 255, 140, 0.06) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+  border-radius: 2px;
+  border: 1px solid #30d630;
+  box-shadow: 0 0 20px #30d630;
+  font-family: monospace;
+  color: #feeecd;
+  text-align: left;
+  overflow: hidden;
+}
+
+/* corner glow frame */
+.rift-entry-panel::before,
+.rift-entry-panel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 4px;
+  pointer-events: none;
+}
+
+.rift-entry-panel::before {
+  border: 1px solid rgba(48, 214, 48, 0.18);
+  box-shadow: 0 0 20px rgba(48, 214, 48, 0.3);
+  mix-blend-mode: screen;
+}
+
+.rift-entry-panel::after {
+  border: 1px solid rgba(213, 80, 44, 0.16);
+  box-shadow: 0 0 28px rgba(213, 80, 44, 0.35);
+  mix-blend-mode: screen;
+}
+
+/* header chrome */
+
+.rift-entry-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+  text-align: center;
+}
+
+.rift-entry-logo {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 10px #d5502c);
+}
+
+.rift-entry-brand {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  align-items: center;
+}
+
+.rift-entry-brand-main {
+  font-family: "Oxanium", system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  font-size: 0.88rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #c3ffc3;
+}
+
+.rift-entry-brand-sub {
+  font-size: 0.78rem;
+  color: #a8c9ab;
+  opacity: 0.95;
+}
+
+/* (rift-entry-badge styles left in case reused elsewhere, but no longer used here) */
+
+.rift-entry-badge {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid #30d630;
+  color: #30d630;
+  background: radial-gradient(circle at top, #041409 0%, #010503 80%);
+  box-shadow: 0 0 10px rgba(48, 214, 48, 0.5);
+  white-space: nowrap;
+}
+
+/* status block / terminal lines */
+
+.rift-entry-status-block {
+  margin-bottom: 1.2rem;
+  padding: 0.6rem 0.95rem 0.8rem;
+  border-radius: 3px;
+  border: 1px solid #264c2a;
+  background: radial-gradient(circle at top, #03140a 0%, #010503 80%);
+  box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.7);
+}
+
+.rift-entry-status-line {
+  display: flex;
+  align-items: flex-start;
+  font-size: 0.82rem;
+  color: #30d630;
+  margin-bottom: 0.15rem;
+}
+
+.rift-entry-status-line:last-child {
+  margin-bottom: 0;
+}
+
+.rift-entry-status-prefix {
+  display: inline-block;
+  width: 0.9rem;
+  color: #30d630;
+}
+
+/* blinking caret for "connecting" */
+
+.rift-entry-caret {
+  display: inline-block;
+  width: 6px;
+  height: 11px;
+  margin-left: 4px;
+  background: #c3ffc3;
+  animation: rift-terminal-caret 0.9s steps(2, start) infinite;
+}
+
+@keyframes rift-terminal-caret {
+  0% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* buttons */
+
+.rift-entry-button {
+  width: 100%;
+  padding: 0.9rem 1rem;
+  margin-bottom: 0.75rem;
+  background: transparent;
+  border-radius: 2px;
+  font-family: "Oxanium", system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  font-size: 0.96rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid #7ae97a;
+  color: #7ae97a;
+  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease,
+    transform 0.08s ease;
+}
+
+.rift-entry-button:hover:not(:disabled) {
+  background: transparent;
+  box-shadow: 0 0 8px #c3ffc3;
+  text-shadow: 0 0 8px #c3ffc3;
+  color: #c3ffc3;
+  border-color: #c3ffc3;
+}
+
+.rift-entry-button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+  box-shadow: none;
+}
+
+.rift-entry-guest {
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  background: transparent;
+  border-radius: 2px;
+  border: 1px dashed #555555;
+  color: #aaaaaa;
+  font-size: 0.8rem;
+  cursor: pointer;
+  font-family: monospace;
+  transition: border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease,
+    transform 0.08s ease;
+}
+
+.rift-entry-guest:hover {
+  color: #dddddd;
+  border-color: #888888;
+  box-shadow: 0 0 6px rgba(136, 136, 136, 0.6);
+}
+
+.rift-entry-footnote {
+  margin-top: 0.8rem;
+  font-size: 0.76rem;
+  color: #a5b49c;
+  opacity: 0.9;
+}
+
+/* CORNER HUD PANELS */
+
+.rift-entry-hud {
+  position: absolute;
+  z-index: 2;
+  max-width: 280px;
+  width: 23vw;
+  min-width: 210px;
+  padding: 0.55rem 0.75rem;
+  /*background: radial-gradient(circle at top left, #011107 0%, #000503 80%);*/
+  border-radius: 4px;
+  border: 0 solid rgba(48, 214, 48, 0.5);
+  box-shadow: 0 0 0 rgba(0, 0, 0, 0.9);
+  color: #eafee0;
+  font-family: monospace;
+  overflow: hidden;
+}
+
+.rift-entry-hud::before,
+.rift-entry-hud::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+
+.rift-entry-hud::before {
+  inset: 2px;
+  border-radius: 3px;
+  border: 0 solid rgba(48, 214, 48, 0.22);
+  opacity: 0.7;
+}
+
+.rift-entry-hud::after {
+  width: 40%;
+  height: 2px;
+  left: 8%;
+  bottom: 6px;
+  background: linear-gradient(
+    90deg,
+    rgba(48, 214, 48, 0) 0%,
+    rgba(48, 214, 48, 0.7) 40%,
+    rgba(48, 214, 48, 0) 100%
+  );
+  opacity: 0.9;
+}
+
+/* positions */
+
+.rift-entry-hud--tl {
+  top: 40px;
+  left: 40px;
+}
+
+.rift-entry-hud--tr {
+  top: 40px;
+  right: 40px;
+}
+
+.rift-entry-hud--bl {
+  bottom: 40px;
+  left: 40px;
+}
+
+.rift-entry-hud--br {
+  bottom: 40px;
+  right: 40px;
+}
+
+.rift-entry-hud-inner {
+  position: relative;
+  z-index: 1;
+}
+
+.rift-entry-hud-title {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: #7ae97a;
+  margin-bottom: 0.35rem;
+}
+
+.rift-entry-hud-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  font-size: 0.76rem;
+  margin-bottom: 0.15rem;
+}
+
+.rift-entry-hud-key {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.68rem;
+  color: #8fa18b;
+}
+
+.rift-entry-hud-value {
+  text-align: right;
+  color: #30d630;
+}
+
+/* EXIT ANIMATIONS */
+
+/* Flicker-out for inner terminal elements */
+@keyframes rift-terminal-elements-flicker {
+  0% {
+    opacity: 1;
+    filter: none;
+    transform: translateY(0);
+  }
+  25% {
+    opacity: 0.3;
+    filter: contrast(1.8) brightness(1.6);
+    transform: translateY(-1px);
+  }
+  50% {
+    opacity: 1;
+    filter: contrast(1.2) brightness(1.1);
+    transform: translateY(1px);
+  }
+  75% {
+    opacity: 0;
+    filter: contrast(2) brightness(2);
+    transform: translateY(-2px) scale(1.01);
+  }
+  100% {
+    opacity: 0;
+    filter: contrast(2) brightness(2);
+    transform: translateY(-2px) scale(1.01);
+  }
+}
+
+/* Overlay fade, slightly trailing the element flicker */
+@keyframes rift-terminal-overlay-fade {
+  0% {
+    opacity: 1;
+  }
+  40% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* CRT noise drift */
+@keyframes rift-noise-shift {
+  0% {
+    background-position: 0 0, 0 0;
+  }
+  50% {
+    background-position: 0 10px, 10px 0;
+  }
+  100% {
+    background-position: 0 0, 0 0;
+  }
+}

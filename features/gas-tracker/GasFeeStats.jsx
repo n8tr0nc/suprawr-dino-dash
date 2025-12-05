@@ -6,7 +6,7 @@ import React, {
   useState,
   useRef,
 } from "react";
-import { RPC_BASE_URL, fetchSupraWrAccess } from "./TokenGate";
+import { RPC_BASE_URL, fetchSupraWrAccess } from "../token-gate/TokenGate";
 
 // -------------------- BALANCE CONVERSION --------------------
 
