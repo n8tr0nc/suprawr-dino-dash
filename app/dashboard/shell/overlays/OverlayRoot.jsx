@@ -8,22 +8,15 @@ import "../../styles/rift.css";
 
 export default function OverlayRoot({
   showEntryOverlay,
-  terminalFlickerOut,
   handleEnterGuest,
-  handleCloseEntryOverlay,
   showRiftFx,
 }) {
   return (
     <>
-      {/* TERMINAL OVERLAY with new flickerOut */}
-      <RiftEntryOverlay
-        visible={showEntryOverlay}
-        flickerOut={terminalFlickerOut}
-        onEnterGuest={handleEnterGuest}
-        onClose={handleCloseEntryOverlay}
-      />
+      {/* RIFT ENTRY TERMINAL */}
+      <RiftEntryOverlay visible={showEntryOverlay} onEnterGuest={handleEnterGuest} />
 
-      {/* RIFT CONNECT FX */}
+      {/* RIFT CONNECT FX (red burst) */}
       <RiftConnectOverlay visible={showRiftFx} />
     </>
   );

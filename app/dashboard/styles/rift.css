@@ -23,6 +23,7 @@
   animation: rift-backdrop-fade 1.6s ease-out forwards;
 }
 
+/* FLASH DISABLED – no more red ball */
 .rift-connect-flash {
   position: absolute;
   top: 50%;
@@ -32,14 +33,11 @@
   margin-left: -130px;
   margin-top: -130px;
   border-radius: 50%;
-  background: radial-gradient(
-    circle,
-    #ffe7c0 0%,
-    #d5502c 35%,
-    rgba(213, 80, 44, 0) 70%
-  );
+  /* Make it fully invisible */
+  background: transparent;
   opacity: 0;
-  animation: rift-flash-pulse 0.28s ease-out forwards;
+  animation: none !important;
+  pointer-events: none;
 }
 
 /* Static glowing Rift ring (no expansion animation) 

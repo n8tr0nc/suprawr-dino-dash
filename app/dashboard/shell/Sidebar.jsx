@@ -148,7 +148,7 @@ export default function Sidebar({
 
       <div className="sidebar-social">
           <a
-            href="https://x.com/SuprawrToken"
+            href="https://x.com/suprawrcoin"
             target="_blank"
             rel="noopener noreferrer"
             className="social-icon"
@@ -166,7 +166,7 @@ export default function Sidebar({
           </a>
 
           <a
-            href="https://t.me/SUPRAWRportal"
+            href="https://t.me/suprawrcoin"
             target="_blank"
             rel="noopener noreferrer"
             className="social-icon"

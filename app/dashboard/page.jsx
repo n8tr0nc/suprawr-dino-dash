@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useMemo } from "react";
 import OverlayRoot from "./shell/overlays/OverlayRoot";
 import TokenGate from "../../features/token-gate/TokenGate";
 import Sidebar from "./shell/Sidebar";
@@ -9,18 +9,6 @@ import GasTracker from "../../features/gas-tracker/GasTracker";
 
 import "./styles/dashboard-shell.css";
 import "./styles/modals.css";
-
-const TERMINAL_FLICKER_DURATION = 350; // ms
-const TERMINAL_FADE_DURATION = 500; // ms
-
-/* Simple compact format for sidebar display */
-function formatCompactBalance(raw) {
-  const num = Number(raw);
-  if (isNaN(num)) return raw;
-  if (num < 1000) return num.toString();
-  if (num < 1_000_000) return `${(num / 1000).toFixed(1)}K`;
-  return `${(num / 1_000_000).toFixed(2)}M`;
-}
 
 /* Same rank logic as GasFeeStats */
 function computeHolderRankFromDisplay(balanceDisplay) {
@@ -47,6 +35,30 @@ function computeHolderRankFromDisplay(balanceDisplay) {
   return "Hatchling";
 }
 
+// BALANCE CONVERSION – same behavior as in GasFeeStats.jsx
+function formatCompactBalance(raw) {
+  const num = Number(raw);
+  if (isNaN(num)) return raw;
+
+  if (num < 1000) return num.toString();
+
+  let val, rounded, display;
+
+  if (num < 1_000_000) {
+    val = num / 1000;
+    rounded = Math.round(val * 10) / 10;
+    display = rounded % 1 === 0 ? `${rounded.toFixed(0)}K` : `${rounded}K`;
+    return display;
+  }
+
+  val = num / 1_000_000;
+  const full = val.toFixed(3);
+  const rounded2 = (Math.round(val * 100) / 100).toFixed(2);
+  const needsApprox = full.slice(0, 4) !== rounded2.slice(0, 4);
+
+  return `${needsApprox ? "~" : ""}${rounded2}M`;
+}
+
 export default function Home() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -65,19 +77,12 @@ export default function Home() {
 
   const refreshRunIdRef = useRef(0);
 
-  // Ripple removed — only the connect effect remains
+  // Rift FX
   const [showRiftFx, setShowRiftFx] = useState(false);
   const riftFxTimeoutRef = useRef(null);
 
   // ENTRY OVERLAY
   const [showEntryOverlay, setShowEntryOverlay] = useState(true);
-
-  // NEW: terminal flicker-out before overlay fade
-  const [terminalFlickerOut, setTerminalFlickerOut] = useState(false);
-
-  // Overlay fade
-  const [isFadingToTerminal, setIsFadingToTerminal] = useState(false);
-  const fadeTimeoutRef = useRef(null);
 
   const toggleSidebar = () => {
     setIsSidebarOpen((prev) => !prev);
@@ -111,12 +116,20 @@ export default function Home() {
       window.removeEventListener("suprawr:tierUpdate", handleTierUpdate);
   }, []);
 
-  /* Wallet connect / disconnect */
+  /* Wallet connect / disconnect (data + FX + overlay control) */
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     function handleWalletChange(event) {
-      const { address, connected } = event.detail || {};
+      const { address, connected } = (event && event.detail) || {};
+
+      // Ignore malformed or incomplete wallet events
+      if (typeof connected !== "boolean") {
+        return;
+      }
+
+      // Kill rank modal on any wallet change to stop red flash
+      setShowRankModal(false);
 
       //--------------------------------------//
       //            WALLET CONNECT            //
@@ -124,18 +137,17 @@ export default function Home() {
       if (connected && address) {
         setCurrentAddress(address);
 
-        // stop any prior timers
-        if (fadeTimeoutRef.current) {
-          clearTimeout(fadeTimeoutRef.current);
-          fadeTimeoutRef.current = null;
-        }
-        setIsFadingToTerminal(false);
+        // HIDE terminal overlay – this is what triggers the fade-out in RiftEntryOverlay
+        setShowEntryOverlay(false);
 
-        // Rift FX
-        setShowRiftFx(true);
+        // Clear Rift FX timer if any
         if (riftFxTimeoutRef.current) {
           clearTimeout(riftFxTimeoutRef.current);
+          riftFxTimeoutRef.current = null;
         }
+
+        // Rift FX (red burst overlay)
+        setShowRiftFx(true);
         riftFxTimeoutRef.current = setTimeout(() => {
           setShowRiftFx(false);
           riftFxTimeoutRef.current = null;
@@ -155,7 +167,9 @@ export default function Home() {
                   ? data.burn_suprawr
                   : "0"
               );
-            } else setBurnTotal("0");
+            } else {
+              setBurnTotal("0");
+            }
           } catch {
             setBurnTotal("0");
           } finally {
@@ -168,9 +182,12 @@ export default function Home() {
           try {
             const res = await fetch(`/api/supra-price?t=${Date.now()}`);
             const data = await res.json();
-            if (data && typeof data.priceUsd === "number")
+            if (data && typeof data.priceUsd === "number") {
               setSupraUsdPrice(data.priceUsd);
-          } catch {}
+            }
+          } catch {
+            // swallow
+          }
         })();
 
         return;
@@ -188,32 +205,23 @@ export default function Home() {
       setBurnTotal(null);
       setBurnLoading(false);
 
-      if (riftFxTimeoutRef.current) clearTimeout(riftFxTimeoutRef.current);
+      if (riftFxTimeoutRef.current) {
+        clearTimeout(riftFxTimeoutRef.current);
+        riftFxTimeoutRef.current = null;
+      }
+
       setShowRiftFx(false);
 
-      if (fadeTimeoutRef.current) clearTimeout(fadeTimeoutRef.current);
-
-      // 1. Flicker terminal UI
-      setTerminalFlickerOut(true);
-
-      // 2. After flicker, fade overlay
-      setTimeout(() => {
-        setTerminalFlickerOut(false);
-        setIsFadingToTerminal(true);
-
-        fadeTimeoutRef.current = setTimeout(() => {
-          setShowEntryOverlay(true);
-          setIsFadingToTerminal(false);
-          fadeTimeoutRef.current = null;
-        }, TERMINAL_FADE_DURATION);
-      }, TERMINAL_FLICKER_DURATION);
+      // RE-OPEN terminal overlay on disconnect
+      setShowEntryOverlay(true);
     }
 
     window.addEventListener("suprawr:walletChange", handleWalletChange);
     return () => {
       window.removeEventListener("suprawr:walletChange", handleWalletChange);
-      if (riftFxTimeoutRef.current) clearTimeout(riftFxTimeoutRef.current);
-      if (fadeTimeoutRef.current) clearTimeout(fadeTimeoutRef.current);
+      if (riftFxTimeoutRef.current) {
+        clearTimeout(riftFxTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -248,13 +256,9 @@ export default function Home() {
       setBurnLoading(true);
 
       const [balRes, priceRes, suprawrRes, burnRes] = await Promise.all([
-        fetch(
-          `/api/supra-balance?address=${encodeURIComponent(currentAddress)}`
-        ),
+        fetch(`/api/supra-balance?address=${encodeURIComponent(currentAddress)}`),
         fetch(`/api/supra-price?t=${Date.now()}`),
-        fetch(
-          `/api/suprawr-balance?address=${encodeURIComponent(currentAddress)}`
-        ),
+        fetch(`/api/suprawr-balance?address=${encodeURIComponent(currentAddress)}`),
         fetch(`/api/burn-total?address=${encodeURIComponent(currentAddress)}`),
       ]);
 
@@ -262,8 +266,9 @@ export default function Home() {
 
       if (balRes.ok) {
         const balData = await balRes.json();
-        if (balData?.balanceDisplay)
+        if (balData?.balanceDisplay) {
           setSupraBalanceDisplay(balData.balanceDisplay);
+        }
       }
 
       if (priceRes.ok) {
@@ -288,7 +293,9 @@ export default function Home() {
             ? burnData.burn_suprawr
             : "0"
         );
-      } else setBurnTotal("0");
+      } else {
+        setBurnTotal("0");
+      }
     } catch {
       setBurnTotal("0");
     } finally {
@@ -316,13 +323,31 @@ export default function Home() {
     !!currentAddress &&
     (refreshingBalances || burnLoading || burnTotal === null);
 
+  const supraBalanceCompact = useMemo(
+    () =>
+      supraBalanceDisplay
+        ? formatCompactBalance(parseFloat(supraBalanceDisplay))
+        : null,
+    [supraBalanceDisplay]
+  );
+
+  const supraWrBalanceCompact = useMemo(
+    () =>
+      supraWrBalanceDisplay
+        ? formatCompactBalance(parseFloat(supraWrBalanceDisplay))
+        : null,
+    [supraWrBalanceDisplay]
+  );
+
+  const burnTotalCompact = useMemo(
+    () =>
+      burnTotal ? formatCompactBalance(parseFloat(burnTotal)) : null,
+    [burnTotal]
+  );
+
   return (
     <TokenGate address={currentAddress}>
-      <div
-        className={`dashboard-shell ${
-          isSidebarOpen ? "sidebar-open" : ""
-        } ${isFadingToTerminal ? "dashboard-shell--fading-out" : ""}`}
-      >
+      <div className={`dashboard-shell ${isSidebarOpen ? "sidebar-open" : ""}`}>
         {/* SIDEBAR */}
         <Sidebar
           isSidebarOpen={isSidebarOpen}
@@ -331,12 +356,12 @@ export default function Home() {
           refreshingBalances={refreshingBalances}
           currentAddress={currentAddress}
           supraLoading={supraLoading}
-          supraBalanceDisplay={supraBalanceDisplay}
+          supraBalanceDisplay={supraBalanceCompact}
           supraNativeUsdDisplay={supraNativeUsdDisplay}
           supraWrLoading={supraWrLoading}
-          supraWrBalanceDisplay={supraWrBalanceDisplay}
+          supraWrBalanceDisplay={supraWrBalanceCompact}
           burnLineLoading={burnLineLoading}
-          burnTotalDisplay={burnTotal}
+          burnTotalDisplay={burnTotalCompact}
           onRefreshBalances={handleRefreshBalances}
         />
 
@@ -347,6 +372,7 @@ export default function Home() {
         {/* HEADER AREA */}
         <main className="dashboard-main">
           <TopBar onToggleSidebar={toggleSidebar} />
+
           <header className="dashboard-header">
             <div className="dashboard-header-left">
               <div>
@@ -488,9 +514,7 @@ export default function Home() {
 
         <OverlayRoot
           showEntryOverlay={showEntryOverlay}
-          terminalFlickerOut={terminalFlickerOut}
           handleEnterGuest={handleEnterGuest}
-          handleCloseEntryOverlay={handleCloseEntryOverlay}
           showRiftFx={showRiftFx}
         />
       </div>

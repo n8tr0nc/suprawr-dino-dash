@@ -80,56 +80,36 @@ function broadcastWalletState(address, connected) {
 }
 
 /* -----------------------------
-   Rift Entry Overlay
+   Rift Entry Overlay (pure UI)
 ------------------------------*/
 
-export default function RiftEntryOverlay({
-  visible,
-  onEnterGuest,
-  onClose,
-}) {
+export default function RiftEntryOverlay({ visible, onEnterGuest }) {
   const [isExiting, setIsExiting] = useState(false);
+  const [shouldRender, setShouldRender] = useState(visible);
   const [isConnecting, setIsConnecting] = useState(false);
 
-  // Reset local exit state whenever parent shows overlay again
+  // Control mount/unmount + exit animation from the `visible` prop
   useEffect(() => {
     if (visible) {
+      // Show overlay
+      setShouldRender(true);
       setIsExiting(false);
       setIsConnecting(false);
+      return;
     }
-  }, [visible]);
 
-  // Listen for wallet connect -> play static exit, then call onClose
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    function handleWalletChange(event) {
-      const { connected, address } = event.detail || {};
-      if (!connected || !address) return;
-
-      // Wallet connected -> trigger exit animation then close
+    // If it was visible and is now false, play exit animation then unmount
+    if (!visible && shouldRender) {
       setIsExiting(true);
-      setIsConnecting(false);
-
-      const timeout = setTimeout(() => {
+      const timeoutId = setTimeout(() => {
         setIsExiting(false);
-        if (typeof onClose === "function") {
-          onClose();
-        }
-      }, 650); // match CSS animation duration
-
-      return () => clearTimeout(timeout);
+        setShouldRender(false);
+      }, 700); // matches rift-terminal-overlay-fade duration
+      return () => clearTimeout(timeoutId);
     }
+  }, [visible, shouldRender]);
 
-    window.addEventListener("suprawr:walletChange", handleWalletChange);
-    return () => {
-      window.removeEventListener("suprawr:walletChange", handleWalletChange);
-    };
-  }, [onClose]);
-
-  if (!visible && !isExiting) {
-    return null;
-  }
+  if (!shouldRender) return null;
 
   const handleConnectClick = async () => {
     const provider = detectRawProvider();
@@ -151,8 +131,10 @@ export default function RiftEntryOverlay({
 
       const addr = accounts[0];
       broadcastWalletState(addr, true);
-      // After this, TopRightBar/page.jsx will handle access, FX, etc.
+      // page.jsx / TopBar handle the rest (FX + closing overlay)
     } catch {
+      // swallow error, just reset connecting
+    } finally {
       setIsConnecting(false);
     }
   };
@@ -206,7 +188,9 @@ export default function RiftEntryOverlay({
           <div className="rift-entry-hud-title">RIFT SUBSTRATE //</div>
           <div className="rift-entry-hud-row">
             <span className="rift-entry-hud-key">Crystals</span>
-            <span className="rift-entry-hud-value">Rift Crystals · Tri-Moon</span>
+            <span className="rift-entry-hud-value">
+              Rift Crystals · Tri-Moon
+            </span>
           </div>
           <div className="rift-entry-hud-row">
             <span className="rift-entry-hud-key">Chain</span>
@@ -258,13 +242,16 @@ export default function RiftEntryOverlay({
           </div>
           <div className="rift-entry-status-line">
             <span className="rift-entry-status-prefix">&gt;</span>
-            <span> Awaiting Starkey identity signature bound to $SUPRAWR DNA.</span>
+            <span>
+              {" "}
+              Awaiting Starkey identity signature bound to $SUPRAWR DNA.
+            </span>
           </div>
           <div className="rift-entry-status-line">
             <span className="rift-entry-status-prefix">&gt;</span>
             {isConnecting ? (
               <span>
-                Syncing creds across Primal Rift nodes. Handshake in progress… 
+                Syncing creds across Primal Rift nodes. Handshake in progress…{" "}
                 <span className="rift-entry-caret" />
               </span>
             ) : (
@@ -291,12 +278,6 @@ export default function RiftEntryOverlay({
         >
           Enter as guest (no telemetry · no $SUPRAWR signature)
         </button>
-
-        {/*<div className="rift-entry-footnote">
-          Guest mode shows Dino Dash analytics without signing any transactions.
-          Connect later from the top-right wallet button to bind this terminal
-          to your fleet identity.
-        </div>*/}
       </div>
     </div>
   );
