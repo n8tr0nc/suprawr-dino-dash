@@ -718,21 +718,68 @@ button.sidebar-rank:hover {
 }
 
 .balance-skeleton {
+  position: relative;
   display: inline-block;
   min-width: 160px;
   height: 12px;
-  border-radius: 2px;
-  background: linear-gradient(90deg, #001600 0%, #1a491a 50%, #001600 100%);
-  background-size: 200% 100%;
-  animation: balance-skeleton-shimmer 2s linear infinite;
+  border-radius: 999px;
+  background: #031003;
+  overflow: hidden;
 }
 
-@keyframes balance-skeleton-shimmer {
+/* SMALLER ORB + ATTACHED TAIL */
+.balance-skeleton::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: -25%;
+  width: 12px; /* smaller orb */
+  height: 8px; /* smaller orb */
+  border-radius: 50%;
+  transform: translateY(-50%);
+
+  /* orb brightness – scaled to match new size */
+  background: radial-gradient(
+    circle,
+    rgba(0, 255, 140, 1) 0%,
+    rgba(0, 255, 140, 0.9) 45%,
+    rgba(0, 255, 140, 0.65) 65%,
+    rgba(0, 255, 140, 0.35) 85%,
+    rgba(0, 255, 140, 0.15) 95%,
+    rgba(0, 255, 140, 0) 100%
+  );
+
+  /* tail scaled to match smaller orb — still attached */
+  box-shadow: -10px 0 14px rgba(0, 255, 140, 0.9),
+    -32px 0 20px rgba(0, 255, 140, 0.45), -55px 0 26px rgba(0, 255, 140, 0.22);
+
+  /* ensures perfect, gapless blending */
+  filter: drop-shadow(-8px 0 8px rgba(0, 255, 140, 0.55));
+
+  animation: rift-orb 1.8s linear infinite;
+}
+
+/* constant speed, smooth fade in/out */
+@keyframes rift-orb {
   0% {
-    background-position: 200% 0;
+    left: -25%;
+    opacity: 0;
+    transform: translateY(-50%) scale(0.8);
+  }
+  15% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-50%) scale(1);
+  }
+  85% {
+    opacity: 0.75;
   }
   100% {
-    background-position: -200% 0;
+    left: 130%;
+    opacity: 0;
+    transform: translateY(-50%) scale(1.15);
   }
 }
 

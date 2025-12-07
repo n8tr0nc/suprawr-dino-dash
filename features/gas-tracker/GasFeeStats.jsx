@@ -6,7 +6,10 @@ import React, {
   useState,
   useRef,
 } from "react";
-import { RPC_BASE_URL, fetchSupraWrAccess } from "../token-gate/TokenGate";
+import { useAccess } from "../access/useAccess";
+
+// RPC base URL
+const RPC_BASE_URL = "https://rpc-mainnet.supra.com";
 
 // -------------------- BALANCE CONVERSION --------------------
 
@@ -49,117 +52,6 @@ function formatUsdApproxFromSupraString(supraStr, supraUsdPrice) {
   return usd.toFixed(digits);
 }
 
-// -------------------- WALLET DETECTION HELPERS --------------------
-
-function detectRawProvider() {
-  if (typeof window === "undefined") return null;
-  const w = window;
-
-  if (w.starkey && (w.starkey.supra || w.starkey.provider)) {
-    return w.starkey.supra || w.starkey.provider;
-  }
-  if (w.starKeyWallet) return w.starKeyWallet;
-  if (w.starKey) return w.starKey;
-  return null;
-}
-
-function normalizeAddress(acc) {
-  if (!acc) return null;
-  if (typeof acc === "string") return acc;
-
-  return (
-    acc.address ||
-    acc.supraAddress ||
-    acc.account_address ||
-    acc.publicKey ||
-    acc.owner ||
-    null
-  );
-}
-
-function normalizeAccounts(response) {
-  if (!response) return [];
-
-  if (Array.isArray(response)) {
-    const out = [];
-    for (const item of response) {
-      const addr = normalizeAddress(item);
-      if (addr) out.push(addr);
-    }
-    return out;
-  }
-
-  const single = normalizeAddress(response);
-  return single ? [single] : [];
-}
-
-async function connectAndGetAccounts(provider) {
-  if (typeof provider.connect === "function") {
-    const res = await provider.connect();
-    return normalizeAccounts(res);
-  }
-
-  if (typeof provider.connectWallet === "function") {
-    try {
-      await provider.connectWallet({ multiple: false, network: "SUPRA" });
-    } catch {
-      await provider.connectWallet();
-    }
-
-    if (typeof provider.getCurrentAccount === "function") {
-      const acc = await provider.getCurrentAccount();
-      return normalizeAccounts(acc);
-    }
-  }
-
-  if (typeof provider.account === "function") {
-    const res = await provider.account();
-    return normalizeAccounts(res);
-  }
-
-  return [];
-}
-
-async function getExistingAccounts(provider) {
-  if (!provider) return [];
-
-  if (typeof provider.account === "function") {
-    const res = await provider.account();
-    return normalizeAccounts(res);
-  }
-
-  if (typeof provider.getCurrentAccount === "function") {
-    const acc = await provider.getCurrentAccount();
-    return normalizeAccounts(acc);
-  }
-
-  return [];
-}
-
-async function disconnectWallet(provider) {
-  if (!provider) return;
-
-  try {
-    if (typeof provider.disconnect === "function") {
-      await provider.disconnect();
-    } else if (typeof provider.disconnectWallet === "function") {
-      await provider.disconnectWallet();
-    }
-  } catch (e) {
-    console.warn("StarKey disconnect error:", e);
-  }
-}
-
-// Broadcast wallet state so other components (TopRightBar, etc.) can sync
-function broadcastWalletState(address, connected) {
-  if (typeof window === "undefined") return;
-  window.dispatchEvent(
-    new CustomEvent("suprawr:walletChange", {
-      detail: { address, connected },
-    })
-  );
-}
-
 // -------------------- GAS FORMATTER --------------------
 
 function formatSupraFromUnits(units) {
@@ -173,7 +65,7 @@ function formatSupraFromUnits(units) {
   return `${whole.toString()}.${fracStr}`;
 }
 
-// -------------------- HOLDER RANK LOGIC --------------------
+// -------------------- HOLDER RANK LOGIC (kept for future use) --------------------
 
 function computeHolderRankFromDisplay(balanceDisplay) {
   if (!balanceDisplay) return null;
@@ -455,32 +347,30 @@ function saveRiftCooldown(address, endMs) {
 // -------------------- MAIN COMPONENT --------------------
 
 export default function GasFeeStats() {
-  const [provider, setProvider] = useState(null);
-  const [walletInstalled, setWalletInstalled] = useState(null);
-  const [connected, setConnected] = useState(false);
-  const [address, setAddress] = useState("");
+  // Unified access + wallet state
+  const {
+    connected,
+    address,
+    hasAccess,
+    supraUsdPrice,
+    loadingAccess,
+    loadingBalances,
+    connect,
+  } = useAccess();
+
   const [txCount, setTxCount] = useState(0);
   const [totalSupra, setTotalSupra] = useState(null);
   const [avgSupra, setAvgSupra] = useState(null);
   const [monthlyAvgSupra, setMonthlyAvgSupra] = useState(null);
   const [error, setError] = useState("");
+
   const [connecting, setConnecting] = useState(false);
   const [calculating, setCalculating] = useState(false);
 
   const [pagesProcessed, setPagesProcessed] = useState(0);
   const [progressPercent, setProgressPercent] = useState(0);
 
-  const [checkingAccess, setCheckingAccess] = useState(false);
-  const [hasAccess, setHasAccess] = useState(null);
-  const [supraWrBalanceDisplay, setSupraWrBalanceDisplay] = useState(null);
-  const [holderRank, setHolderRank] = useState(null);
-
-  const [showRankModal, setShowRankModal] = useState(false);
-
-  const [supraUsdPrice, setSupraUsdPrice] = useState(null);
-
   const [showInfo, setShowInfo] = useState(false);
-
   const [lastSyncTime, setLastSyncTime] = useState(null);
 
   // Rift Energy animation state (0 → 1) for charge-up
@@ -500,42 +390,8 @@ export default function GasFeeStats() {
   // Have we successfully loaded stats (from cache or fresh sync)?
   const [hasStats, setHasStats] = useState(false);
 
-  // run id to cancel in-flight calculations on disconnect / wallet change
+  // run id to cancel in-flight calculations on wallet change
   const calcRunIdRef = useRef(0);
-
-  const runAccessCheck = useCallback(async (addr) => {
-    if (!addr) {
-      setHasAccess(null);
-      setError("");
-      setSupraWrBalanceDisplay(null);
-      setHolderRank(null);
-      return false;
-    }
-
-    setCheckingAccess(true);
-    try {
-      const { hasAccess, balanceDisplay } = await fetchSupraWrAccess(addr);
-
-      setHasAccess(!!hasAccess);
-      if (hasAccess) setError("");
-      setSupraWrBalanceDisplay(balanceDisplay || "0.000000");
-
-      const rank = computeHolderRankFromDisplay(balanceDisplay);
-      setHolderRank(rank);
-
-      if (!hasAccess) {
-        setError(
-          "Access denied: this wallet must hold at least 1,000 $SUPRAWR to use this tool."
-        );
-      } else {
-        setError("");
-      }
-
-      return !!hasAccess;
-    } finally {
-      setCheckingAccess(false);
-    }
-  }, []);
 
   const startRiftCooldown = useCallback(
     (addr) => {
@@ -619,13 +475,15 @@ export default function GasFeeStats() {
     [startRiftCooldown]
   );
 
+  // Load existing cache + maybe auto-refresh if stale
   const runAccessAndMaybeCalc = useCallback(
     async (addr) => {
       if (!addr) return;
       setError("");
 
-      const allowed = await runAccessCheck(addr);
-      if (!allowed) return;
+      // Wait for gate result; if no access, do nothing
+      if (hasAccess === false) return;
+      if (hasAccess == null) return;
 
       const cache = loadGasCache(addr);
 
@@ -656,92 +514,13 @@ export default function GasFeeStats() {
 
       await runGasCalculationWithCache(addr, { isManualRecalc: false });
     },
-    [runAccessCheck, runGasCalculationWithCache]
+    [hasAccess, runGasCalculationWithCache]
   );
 
-  // Initial provider detection + auto-flow if wallet already connected
+  // Auto-run when wallet + access are ready
   useEffect(() => {
-    let cancelled = false;
-    setWalletInstalled(null);
-
-    const startTime = Date.now();
-
-    const intervalId = setInterval(async () => {
-      if (cancelled) return;
-
-      const raw = detectRawProvider();
-      if (raw) {
-        clearInterval(intervalId);
-        setProvider(raw);
-        setWalletInstalled(true);
-
-        try {
-          const existing = await getExistingAccounts(raw);
-          if (existing.length > 0) {
-            const addr = existing[0];
-            setConnected(true);
-            setAddress(addr);
-            runAccessAndMaybeCalc(addr);
-          }
-        } catch {
-          // ignore
-        }
-
-        return;
-      }
-
-      if (Date.now() - startTime > 5000) {
-        clearInterval(intervalId);
-        if (!cancelled) setWalletInstalled(false);
-      }
-    }, 500);
-
-    return () => {
-      cancelled = true;
-      clearInterval(intervalId);
-    };
-  }, [runAccessAndMaybeCalc]);
-
-  // SUPRA price polling
-  useEffect(() => {
-    let cancelled = false;
-
-    async function fetchPrice() {
-      try {
-        const res = await fetch("/api/supra-price");
-        if (!res.ok) return;
-        const data = await res.json();
-        if (!cancelled && data && typeof data.priceUsd === "number") {
-          setSupraUsdPrice(data.priceUsd);
-        }
-      } catch (err) {
-        console.error("Failed to fetch SUPRA price:", err);
-      }
-    }
-
-    fetchPrice();
-    const id = setInterval(fetchPrice, 60_000);
-
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
-  }, []);
-
-  // Global wallet change listener
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    function handleWalletChange(event) {
-      const { address: newAddr, connected: isConnected } = event.detail || {};
-
-      if (newAddr === address && isConnected === connected) {
-        return;
-      }
-
-      setConnected(!!isConnected);
-      setAddress(newAddr || "");
-
+    if (!connected || !address) {
+      // Reset when disconnected
       setTxCount(0);
       setTotalSupra(null);
       setAvgSupra(null);
@@ -750,28 +529,19 @@ export default function GasFeeStats() {
       setProgressPercent(0);
       setHasStats(false);
       setLastSyncTime(null);
-
       setIsDraining(false);
       setDrainValue(1);
       setManualSyncActive(false);
-
-      if (!isConnected || !newAddr) {
-        calcRunIdRef.current++;
-        setHasAccess(null);
-        setSupraWrBalanceDisplay(null);
-        setHolderRank(null);
-        setError("");
-        setCooldownEndMs(null);
-      } else {
-        runAccessAndMaybeCalc(newAddr);
-      }
+      setCooldownEndMs(null);
+      return;
     }
 
-    window.addEventListener("suprawr:walletChange", handleWalletChange);
-    return () => {
-      window.removeEventListener("suprawr:walletChange", handleWalletChange);
-    };
-  }, [address, connected, runAccessAndMaybeCalc]);
+    // Wait until access tier is known
+    if (hasAccess === null) return;
+    if (hasAccess === false) return;
+
+    runAccessAndMaybeCalc(address);
+  }, [connected, address, hasAccess, runAccessAndMaybeCalc]);
 
   // Load Rift cooldown when address changes
   useEffect(() => {
@@ -880,39 +650,17 @@ export default function GasFeeStats() {
     async () => {
       setError("");
 
-      if (!provider) {
-        if (typeof window !== "undefined") {
-          window.open("https://starkey.app", "_blank");
-        }
-        return;
-      }
-
+      // Not connected → use unified connect from AccessProvider
       if (!connected) {
         try {
           setConnecting(true);
-          const accounts = await connectAndGetAccounts(provider);
-
-          if (!accounts.length) {
-            throw new Error("StarKey did not return any accounts.");
-          }
-
-          const addr = accounts[0];
-          setAddress(addr);
-          setConnected(true);
-
-          broadcastWalletState(addr, true);
-          await runAccessAndMaybeCalc(addr);
-        } catch (e) {
-          console.error(e);
-          const msg =
-            e?.code === 4001
-              ? "Connection request was rejected in StarKey."
-              : "Failed to connect StarKey wallet.";
-          setError(msg);
+          await connect();
+        } catch (err) {
+          console.error("GasFeeStats connect failed:", err);
+          setError("Failed to connect StarKey wallet.");
         } finally {
           setConnecting(false);
         }
-
         return;
       }
 
@@ -921,8 +669,10 @@ export default function GasFeeStats() {
         return;
       }
 
-      const allowed = await runAccessCheck(address);
-      if (!allowed) return;
+      if (hasAccess === false) {
+        // Gate enforced globally; just don't run
+        return;
+      }
 
       const isManualRecalc = !!hasStats;
 
@@ -934,74 +684,8 @@ export default function GasFeeStats() {
 
       await runGasCalculationWithCache(address, { isManualRecalc });
     },
-    [
-      provider,
-      connected,
-      address,
-      runAccessCheck,
-      runGasCalculationWithCache,
-      runAccessAndMaybeCalc,
-      hasStats,
-    ]
+    [connected, address, hasAccess, hasStats, connect, runGasCalculationWithCache]
   );
-
-  const handleDisconnect = useCallback(
-    async () => {
-      setError("");
-      calcRunIdRef.current++;
-
-      await disconnectWallet(provider);
-
-      broadcastWalletState("", false);
-
-      setConnected(false);
-      setAddress("");
-      setHasAccess(null);
-      setError("");
-      setSupraWrBalanceDisplay(null);
-      setHolderRank(null);
-      setTotalSupra(null);
-      setAvgSupra(null);
-      setMonthlyAvgSupra(null);
-      setTxCount(0);
-      setPagesProcessed(0);
-      setProgressPercent(0);
-      setShowRankModal(false);
-      setCalculating(false);
-      setConnecting(false);
-      setCheckingAccess(false);
-      setCooldownEndMs(null);
-      setHasStats(false);
-      setLastSyncTime(null);
-      setIsDraining(false);
-      setDrainValue(1);
-      setManualSyncActive(false);
-    },
-    [provider]
-  );
-
-  const handleWalletButtonClick = useCallback(
-    async () => {
-      if (connected) {
-        await handleDisconnect();
-      } else {
-        await handleAction();
-      }
-    },
-    [connected, handleAction, handleDisconnect]
-  );
-
-  const walletButtonLabel =
-    walletInstalled === false && !provider
-      ? "Install StarKey"
-      : !connected
-      ? connecting
-        ? "Connecting…"
-        : "Connect Wallet"
-      : "Disconnect Wallet";
-
-  const isWalletButtonDisabled =
-    connecting || calculating || checkingAccess;
 
   // --- Rift cooldown derived values ---
   let cooldownActive = false;
@@ -1025,29 +709,25 @@ export default function GasFeeStats() {
     ? Math.ceil(cooldownRemainingMs / 1000)
     : 0;
 
-  const buttonLabel =
-    walletInstalled === false && !provider
-      ? "Install StarKey Wallet"
-      : !connected
-      ? connecting
-        ? "Connecting…"
-        : "Connect StarKey Wallet"
-      : checkingAccess
-      ? "Checking Access…"
-      : hasAccess === false
-      ? "Access Denied (1,000 $SUPRAWR Needed)"
-      : calculating
-      ? "Syncing…"
-      : hasStats && cooldownActive
-      ? `Rift Energy Recharging… ${cooldownRemainingSeconds}s`
-      : hasStats
-      ? "Sync Rift Data"
-      : "Sync Rift Data";
+  const buttonLabel = !connected
+    ? connecting
+      ? "Connecting…"
+      : "Connect StarKey Wallet"
+    : loadingAccess
+    ? "Checking Access…"
+    : hasAccess === false
+    ? "Access Denied (1,000 $SUPRAWR Needed)"
+    : calculating
+    ? "Syncing…"
+    : hasStats && cooldownActive
+    ? `Rift Energy Recharging… ${cooldownRemainingSeconds}s`
+    : "Sync Rift Data";
 
   const isButtonDisabled =
     connecting ||
     calculating ||
-    checkingAccess ||
+    loadingAccess ||
+    loadingBalances ||
     (connected && hasAccess === false) ||
     (connected && hasAccess && hasStats && cooldownActive);
 
@@ -1090,16 +770,12 @@ export default function GasFeeStats() {
   if (!connected || !address) {
     energyProgress = 0;
   } else if (isDraining) {
-    // During drain animation
     energyProgress = Math.max(0, Math.min(1, drainValue));
   } else if (manualSyncActive && calculating) {
-    // Drain finished but manual sync still running → stay empty
     energyProgress = 0;
   } else if (cooldownActive) {
-    // Cooldown: slowly refill over 60s
     energyProgress = cooldownProgress;
   } else {
-    // Idle / just connected: quick charge-up animation
     energyProgress = Math.min(1, Math.max(0, energyAnim));
   }
 
@@ -1179,6 +855,11 @@ export default function GasFeeStats() {
     progressLabelText === "Last sync complete" && lastSyncTime
       ? `${progressLabelText} – ${formatTimestamp(lastSyncTime)}`
       : progressLabelText;
+
+  const accessError =
+    connected && hasAccess === false
+      ? "Access denied: this wallet must hold at least 1,000 $SUPRAWR to use this tool."
+      : "";
 
   return (
     <>
@@ -1271,7 +952,7 @@ export default function GasFeeStats() {
             id="wallet"
             type="text"
             className="field-input"
-            value={address}
+            value={address || ""}
             readOnly
             disabled
             placeholder="Connect StarKey to autofill your address"
@@ -1318,6 +999,7 @@ export default function GasFeeStats() {
           </div>
         </div>
 
+        {accessError && <div className="alert error">{accessError}</div>}
         {error && <div className="alert error">{error}</div>}
 
         {connected && hasAccess && !error && (
