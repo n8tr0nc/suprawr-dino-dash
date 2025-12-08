@@ -589,8 +589,15 @@
   .sidebar-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.6);
-    z-index: 40;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.75); /* dim like modals */
+    /*backdrop-filter: blur(2px);*/
+    z-index: 49;
+    opacity: 1;
+    transition: opacity 0.25s ease;
   }
 
   /* Show burger on mobile */

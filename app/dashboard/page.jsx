@@ -132,6 +132,13 @@ export default function Page() {
           rankName={currentTier}               // <-- ADDED
         />
 
+        {isSidebarOpen && (
+          <div
+            className="sidebar-overlay"
+            onClick={() => setIsSidebarOpen(false)}
+          />
+        )}
+
         <div className="dashboard-main">
           <TopBar onToggleSidebar={handleToggleSidebar} />
 
