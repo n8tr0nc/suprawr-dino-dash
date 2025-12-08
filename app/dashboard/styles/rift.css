@@ -148,6 +148,7 @@
   transform-origin: center center;
   transform: scale(1);
   filter: blur(0);
+  padding: 20px;
 }
 
 .rift-entry-overlay--exiting {
@@ -201,12 +202,12 @@
 /* Central Handshake Terminal */
 
 .rift-entry-panel {
-  position: fixed;
+  /*position: fixed;*/
   z-index: 4;
   max-width: 520px;
   width: 100%;
-  margin: 0 20px;
-  padding: 1.8rem 2rem 1.7rem;
+  margin: 0 0;
+  padding: 1.4rem 1.4rem;
   background: radial-gradient(circle at top, #05140a 0%, #010503 70%),
     repeating-linear-gradient(
       0deg,
@@ -592,5 +593,32 @@
   }
   100% {
     background-position: 0 0, 0 0;
+  }
+}
+
+@media (max-width: 600px) {
+  .rift-entry-hud {
+    width: 100%;
+    min-width: 0;
+  }
+  .rift-entry-hud--tl {
+    top: 20px;
+    left: 50%;
+    transform: translate(-50%, 0%);
+  }
+  .rift-entry-hud--tr {
+    top: 100px;
+    left: 50%;
+    transform: translate(-50%, 0%);
+  }
+  .rift-entry-hud--bl {
+    bottom: 20px;
+    left: 50%;
+    transform: translate(-50%, 0%);
+  }
+  .rift-entry-hud--br {
+    bottom: 100px;
+    left: 50%;
+    transform: translate(-50%, 0%);
   }
 }
