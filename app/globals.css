@@ -1,5 +1,5 @@
 html {
-  scrollbar-gutter: stable; /* prevents layout shift when overflow toggles */
+  scrollbar-gutter: auto; /* prevents layout shift when overflow toggles */
 }
 
 body {

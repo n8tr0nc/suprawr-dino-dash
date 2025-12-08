@@ -260,7 +260,7 @@ export default function Sidebar({
       </div>
 
       <div className="sidebar-version">
-        v0.1.0 — Built by the Suprawr Crew. Nothing here is financial advice,
+        v0.2.2 — Built by the Suprawr Crew. Nothing here is financial advice,
         just stats for dinos who love data.
       </div>
     </aside>

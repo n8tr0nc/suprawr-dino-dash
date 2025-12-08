@@ -68,10 +68,24 @@ export default function Page() {
 
         <div className="dashboard-main">
           <TopBar onToggleSidebar={handleToggleSidebar} />
+          <header className="dashboard-header">
+            <div className="dashboard-header-left">
+              <div>
+                <h1 className="dashboard-title">
+                  <span className="gas-icon">⛽︎</span> GAS TRACKER
+                </h1>
+                <p className="dashboard-subtitle">
+                  Track how much gas your Supra wallet has spent.
+                </p>
+              </div>
+            </div>
+          </header>
           <GasTracker />
           <section class="dashboard-panel panel-25">
             <div class="dashboard-panel-body">
-              <img src="/poster-airdrop-004.webp" title="$SUPRAWR Airdrop Poster" />
+              <a href="https://suprawr.com" target="_blank" rel="noopener noreferrer">
+                <img src="/poster-airdrop-004.webp" title="Click to learn more!" class="poster-001" />
+              </a>
             </div>
           </section>
         </div>
