@@ -13,6 +13,16 @@
   align-items: center;
   justify-content: center;
   padding: 1.5rem;
+
+  /* match Rift terminal overlay feel */
+  transform-origin: center center;
+  animation: rift-terminal-overlay-enter 0.5s ease-out forwards;
+}
+
+.modal-001-overlay--exiting,
+.tier-modal-overlay--exiting,
+.gas-info-overlay--exiting {
+  animation: rift-terminal-overlay-fade 0.5s ease-out forwards;
 }
 
 .modal-001,
@@ -90,4 +100,36 @@
 .gas-info-body code {
   font-size: 0.9rem;
   color: #30d630;
+}
+
+/* =========================
+   RANK MODAL BADGE DISPLAY
+   ========================= */
+
+.rank-modal-badge-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.85rem;
+  margin-top: -30px;
+}
+
+.rank-modal-badge {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  border-radius: 50%;
+  filter: drop-shadow(0 0 10px rgba(213, 80, 44, 0.95));
+}
+
+.rank-modal-tier-name {
+  text-align: center;
+  font-family: var(--font-oxanium), sans-serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #d5502c;
+  margin-top: -4px;
+  margin-bottom: 16px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
 }

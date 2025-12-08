@@ -10,6 +10,7 @@ import { useAccess } from "../access/useAccess";
 
 // RPC base URL
 const RPC_BASE_URL = "https://rpc-mainnet.supra.com";
+const INFO_MODAL_ANIM_MS = 500; // match modal overlay animation duration
 
 // -------------------- BALANCE CONVERSION --------------------
 
@@ -397,6 +398,8 @@ export default function GasFeeStats() {
   const [progressPercent, setProgressPercent] = useState(0);
 
   const [showInfo, setShowInfo] = useState(false);
+  const [isInfoExiting, setIsInfoExiting] = useState(false);
+  const infoTimerRef = useRef(null);
   const [lastSyncTime, setLastSyncTime] = useState(null);
 
   // Rift Energy animation state (0 → 1) for charge-up
@@ -418,6 +421,32 @@ export default function GasFeeStats() {
 
   // run id to cancel in-flight calculations on wallet change
   const calcRunIdRef = useRef(0);
+
+  const handleOpenInfo = useCallback(() => {
+    if (infoTimerRef.current) {
+      clearTimeout(infoTimerRef.current);
+      infoTimerRef.current = null;
+    }
+
+    setIsInfoExiting(false);
+    setShowInfo(true);
+  }, []);
+
+  const handleCloseInfo = useCallback(() => {
+    if (!showInfo) return;
+
+    setIsInfoExiting(true);
+
+    if (infoTimerRef.current) {
+      clearTimeout(infoTimerRef.current);
+    }
+
+    infoTimerRef.current = setTimeout(() => {
+      setShowInfo(false);
+      setIsInfoExiting(false);
+      infoTimerRef.current = null;
+    }, INFO_MODAL_ANIM_MS);
+  }, [showInfo]);
 
   const startRiftCooldown = useCallback(
     (addr) => {
@@ -668,6 +697,15 @@ export default function GasFeeStats() {
     };
   }, [isDraining]);
 
+  // Clean up info modal timer on unmount
+  useEffect(() => {
+    return () => {
+      if (infoTimerRef.current) {
+        clearTimeout(infoTimerRef.current);
+      }
+    };
+  }, []);
+
   const handleAction = useCallback(
     async () => {
       setError("");
@@ -900,7 +938,7 @@ export default function GasFeeStats() {
         <div className="dashboard-panel-header">
           <button
             className="gas-info-button"
-            onClick={() => setShowInfo(true)}
+            onClick={handleOpenInfo}
             aria-label="Gas Tracker Info"
           >
             i
@@ -913,8 +951,10 @@ export default function GasFeeStats() {
 
         {showInfo && (
           <div
-            className="modal-001-overlay gas-info-overlay"
-            onClick={() => setShowInfo(false)}
+            className={`modal-001-overlay gas-info-overlay${
+              isInfoExiting ? " modal-001-overlay--exiting" : ""
+            }`}
+            onClick={handleCloseInfo}
           >
             <div
               className="modal-001 gas-info-modal"
@@ -926,7 +966,7 @@ export default function GasFeeStats() {
                 </h3>
                 <button
                   className="modal-001-close gas-info-close"
-                  onClick={() => setShowInfo(false)}
+                  onClick={handleCloseInfo}
                 >
                   ×
                 </button>

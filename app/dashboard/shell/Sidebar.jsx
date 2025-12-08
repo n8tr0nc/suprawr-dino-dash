@@ -13,21 +13,38 @@ function formatSidebarBalance(raw) {
   const sign = num < 0 ? "-" : "";
   const abs = Math.abs(num);
 
-  // Millions
   if (abs >= 1_000_000) {
     const m = abs / 1_000_000;
-    const decimals = m >= 10 ? 1 : 2; // 26.3M vs 4.58M style
+    const decimals = m >= 10 ? 1 : 2;
     return `${sign}~${m.toFixed(decimals)}M`;
   }
 
-  // Thousands
   if (abs >= 1_000) {
     const k = abs / 1_000;
-    return `${sign}~${k.toFixed(1)}K`; // 75.4K style
+    return `${sign}~${k.toFixed(1)}K`;
   }
 
-  // Sub-thousand – 2 decimals
   return `${sign}~${abs.toFixed(2)}`;
+}
+
+// -------------------------------
+// Resolve badge path
+// -------------------------------
+function getRankBadgePath(tier) {
+  switch (tier) {
+    case "Hatchling":
+      return "/rank/hatchling-001.webp";
+    case "Scaleborn":
+      return "/rank/scaleborn-001.webp";
+    case "Primal Guardian":
+      return "/rank/gaurdian-001.webp"; // spelled this way in your folder
+    case "Primal Titan":
+      return "/rank/titan-001.webp";
+    case "Primal Master":
+      return "/rank/master-001.webp";
+    default:
+      return null;
+  }
 }
 
 export default function Sidebar({
@@ -71,6 +88,8 @@ export default function Sidebar({
       ? formatSidebarBalance(burnTotal)
       : null;
 
+  const badgeSrc = accessTier ? getRankBadgePath(accessTier) : null;
+
   return (
     <aside
       className={`dashboard-sidebar ${isSidebarOpen ? "sidebar-open" : ""}`}
@@ -88,13 +107,24 @@ export default function Sidebar({
           </div>
         </div>
 
+        {/* ------------------------------ */}
+        {/*   RANK BADGE BUTTON            */}
+        {/* ------------------------------ */}
         {accessTier && (
           <button
             type="button"
             className="sidebar-rank"
             onClick={onOpenRankModal}
           >
-            <span className="sidebar-holder-rank">[Rank: {accessTier}]</span>
+            {badgeSrc && (
+              <img
+                src={badgeSrc}
+                alt={accessTier}
+                className="sidebar-rank-badge"
+              />
+            )}
+
+            <span className="sidebar-rank-label">{accessTier}</span>
           </button>
         )}
 
@@ -209,7 +239,6 @@ export default function Sidebar({
           rel="noopener noreferrer"
           className="social-icon"
         >
-          {/* X icon SVG */}
           <svg
             stroke="currentColor"
             fill="currentColor"
@@ -228,7 +257,6 @@ export default function Sidebar({
           rel="noopener noreferrer"
           className="social-icon"
         >
-          {/* Telegram icon SVG */}
           <svg
             stroke="currentColor"
             fill="currentColor"
@@ -247,7 +275,6 @@ export default function Sidebar({
           rel="noopener noreferrer"
           className="social-icon"
         >
-          {/* Site icon SVG */}
           <svg
             xmlns="http://www.w3.org/2000/svg"
             height="24"

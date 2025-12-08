@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useAccess } from "../../features/access/useAccess";
 
 import OverlayRoot from "./shell/overlays/OverlayRoot";
@@ -11,9 +11,33 @@ import GasTracker from "../../features/gas-tracker/GasTracker";
 import "./styles/dashboard-shell.css";
 import "./styles/modals.css";
 
+const MODAL_ANIM_MS = 500;
+
+// --------------------------
+// Rank badge resolver
+// --------------------------
+function getRankBadgePath(tier) {
+  switch (tier) {
+    case "Hatchling":
+      return "/rank/hatchling-001.webp";
+    case "Scaleborn":
+      return "/rank/scaleborn-001.webp";
+    case "Primal Guardian":
+      return "/rank/gaurdian-001.webp";
+    case "Primal Titan":
+      return "/rank/titan-001.webp";
+    case "Primal Master":
+      return "/rank/master-001.webp";
+    default:
+      return null;
+  }
+}
+
 export default function Page() {
   const { connected, accessTier } = useAccess();
+
   const currentTier = accessTier || null;
+  const rankBadgeSrc = currentTier ? getRankBadgePath(currentTier) : null;
 
   // Sidebar open/close (mobile)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -25,50 +49,92 @@ export default function Page() {
 
   // Rank modal
   const [showRankModal, setShowRankModal] = useState(false);
+  const [isRankModalExiting, setIsRankModalExiting] = useState(false);
+  const rankModalTimerRef = useRef(null);
 
-  // When user enters via terminal (guest or wallet), close overlay and fire FX
+  // ---------------------------------------
+  // Entry overlay (guest or wallet enter)
+  // ---------------------------------------
   const handleEnterGuest = () => {
     setHasEnteredOnce(true);
     setShowEntryOverlay(false);
     setShowRiftFx(true);
 
-    // Fade out the red burst FX after a short delay
-    setTimeout(() => {
-      setShowRiftFx(false);
-    }, 700);
+    setTimeout(() => setShowRiftFx(false), 700);
   };
 
-  // Sidebar toggle (used by TopBar on mobile)
-  const handleToggleSidebar = () => {
+  // ---------------------------------------
+  // Rank modal open
+  // ---------------------------------------
+  const handleOpenRankModal = () => {
+    if (rankModalTimerRef.current) {
+      clearTimeout(rankModalTimerRef.current);
+      rankModalTimerRef.current = null;
+    }
+
+    setIsRankModalExiting(false);
+    setShowRankModal(true);
+  };
+
+  // ---------------------------------------
+  // Rank modal close (with exit animation)
+  // ---------------------------------------
+  const handleCloseRankModal = () => {
+    if (!showRankModal) return;
+
+    setIsRankModalExiting(true);
+
+    if (rankModalTimerRef.current) {
+      clearTimeout(rankModalTimerRef.current);
+    }
+
+    rankModalTimerRef.current = setTimeout(() => {
+      setShowRankModal(false);
+      setIsRankModalExiting(false);
+      rankModalTimerRef.current = null;
+    }, MODAL_ANIM_MS);
+  };
+
+  const handleToggleSidebar = () =>
     setIsSidebarOpen((prev) => !prev);
-  };
 
-  // When the wallet disconnects AFTER the user has entered once,
-  // bring back the terminal overlay.
+  // Restore overlay if wallet disconnects AFTER entry
   useEffect(() => {
     if (!connected && hasEnteredOnce) {
       setShowEntryOverlay(true);
     }
   }, [connected, hasEnteredOnce]);
 
+  // Cleanup timers
+  useEffect(() => {
+    return () => {
+      if (rankModalTimerRef.current) {
+        clearTimeout(rankModalTimerRef.current);
+      }
+    };
+  }, []);
+
   return (
     <div className="dashboard-root">
-      {/* Overlay stack: Rift terminal + FX */}
+      {/* Rift entry overlay */}
       <OverlayRoot
         showEntryOverlay={showEntryOverlay}
         handleEnterGuest={handleEnterGuest}
         showRiftFx={showRiftFx}
       />
 
-      {/* Main dashboard shell (visible even if overlay is on top) */}
+      {/* Dashboard Shell */}
       <div className="dashboard-shell">
         <Sidebar
           isSidebarOpen={isSidebarOpen}
-          onOpenRankModal={() => setShowRankModal(true)}
+          onOpenRankModal={handleOpenRankModal}
+          rankBadge={rankBadgeSrc}              // <-- ADDED
+          rankName={currentTier}               // <-- ADDED
         />
 
         <div className="dashboard-main">
           <TopBar onToggleSidebar={handleToggleSidebar} />
+
           <header className="dashboard-header">
             <div className="dashboard-header-left">
               <div>
@@ -81,97 +147,97 @@ export default function Page() {
               </div>
             </div>
           </header>
+
           <GasTracker />
+
           <section className="dashboard-panel panel-25">
             <div className="dashboard-panel-body">
-              <a href="https://suprawr.com" target="_blank" rel="noopener noreferrer">
-                <img src="/poster-airdrop-004.webp" title="Click to learn more!" className="poster-001" />
+              <a
+                href="https://suprawr.com"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <img
+                  src="/poster-airdrop-004.webp"
+                  className="poster-001"
+                />
               </a>
             </div>
           </section>
         </div>
       </div>
 
-      {/* Rank modal, driven by Sidebar's rank button */}
+      {/* Rank Modal */}
       {showRankModal && (
         <div
-          className="modal-001-overlay rank-modal-overlay"
-          onClick={() => setShowRankModal(false)}
+          className={`modal-001-overlay rank-modal-overlay${
+            isRankModalExiting ? " modal-001-overlay--exiting" : ""
+          }`}
+          onClick={handleCloseRankModal}
         >
           <div
             className="modal-001 rank-modal"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="modal-001-header">
-              <h3 className="modal-001-title">Holder Rank Info</h3>
+              <h3 className="modal-001-title"> </h3>
               <button
                 type="button"
                 className="modal-001-close"
-                onClick={() => setShowRankModal(false)}
-                aria-label="Close rank info"
+                onClick={handleCloseRankModal}
               >
                 ×
               </button>
             </div>
-                        <div className="modal-001-body">
+
+            <div className="modal-001-body">
+
+              {/* ------------------------ */}
+              {/* RANK BADGE AT TOP        */}
+              {/* ------------------------ */}
+              {rankBadgeSrc && (
+                <div className="rank-modal-badge-wrap">
+                  <img
+                    src={rankBadgeSrc}
+                    alt={currentTier}
+                    className="rank-modal-badge"
+                  />
+                </div>
+              )}
+
+              {currentTier && (
+                <div className="rank-modal-tier-name">
+                  {currentTier}
+                </div>
+              )}
+
               <p>
-                Your rank is based on your total $SUPRAWR holdings. Higher
-                tiers unlock more features and future modules inside Dino Dash.
+                Your rank is based on your total $SUPRAWR holdings.
+                Higher tiers unlock more features inside DinoDash.
               </p>
 
-              {/* Current tier display */}
-              <div className="tier-current">
-                Current tier: <span className="tier-current-name">{currentTier || "No rank yet"}</span>
-              </div>
-
-              {/* Left/right aligned tier list with highlight */}
               <ul className="tier-list">
-                <li
-                  className={
-                    "tier-list-item" +
-                    (currentTier === "Primal Master" ? " current-tier" : "")
-                  }
-                >
+                <li className={`tier-list-item${currentTier === "Primal Master" ? " current-tier" : ""}`}>
                   <span className="tier-name">Primal Master</span>
                   <span className="tier-range">10,000,000+ $SUPRAWR</span>
                 </li>
 
-                <li
-                  className={
-                    "tier-list-item" +
-                    (currentTier === "Primal Titan" ? " current-tier" : "")
-                  }
-                >
+                <li className={`tier-list-item${currentTier === "Primal Titan" ? " current-tier" : ""}`}>
                   <span className="tier-name">Primal Titan</span>
                   <span className="tier-range">1,000,000+ $SUPRAWR</span>
                 </li>
 
-                <li
-                  className={
-                    "tier-list-item" +
-                    (currentTier === "Primal Guardian" ? " current-tier" : "")
-                  }
-                >
+                <li className={`tier-list-item${currentTier === "Primal Guardian" ? " current-tier" : ""}`}>
                   <span className="tier-name">Primal Guardian</span>
                   <span className="tier-range">100,000+ $SUPRAWR</span>
                 </li>
 
-                <li
-                  className={
-                    "tier-list-item" +
-                    (currentTier === "Scaleborn" ? " current-tier" : "")
-                  }
-                >
+                <li className={`tier-list-item${currentTier === "Scaleborn" ? " current-tier" : ""}`}>
                   <span className="tier-name">Scaleborn</span>
                   <span className="tier-range">1,000+ $SUPRAWR</span>
                 </li>
 
-                <li
-                  className={
-                    "tier-list-item" +
-                    (currentTier === "Hatchling" ? " current-tier" : "")
-                  }
-                >
+                <li className={`tier-list-item${currentTier === "Hatchling" ? " current-tier" : ""}`}>
                   <span className="tier-name">Hatchling</span>
                   <span className="tier-range">below 1,000 $SUPRAWR</span>
                 </li>
