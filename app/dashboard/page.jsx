@@ -12,7 +12,8 @@ import "./styles/dashboard-shell.css";
 import "./styles/modals.css";
 
 export default function Page() {
-  const { connected } = useAccess();
+  const { connected, accessTier } = useAccess();
+  const currentTier = accessTier || null;
 
   // Sidebar open/close (mobile)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -112,17 +113,68 @@ export default function Page() {
                 ×
               </button>
             </div>
-            <div className="modal-001-body">
+                        <div className="modal-001-body">
               <p>
                 Your rank is based on your total $SUPRAWR holdings. Higher
                 tiers unlock more features and future modules inside Dino Dash.
               </p>
-              <ul className="rank-list">
-                <li>Primal Master — 10,000,000+ $SUPRAWR</li>
-                <li>Primal Titan — 1,000,000+ $SUPRAWR</li>
-                <li>Primal Guardian — 100,000+ $SUPRAWR</li>
-                <li>Scaleborn — 1,000+ $SUPRAWR</li>
-                <li>Hatchling — below 1,000 $SUPRAWR</li>
+
+              {/* Current tier display */}
+              <div className="tier-current">
+                Current tier: <span className="tier-current-name">{currentTier || "No rank yet"}</span>
+              </div>
+
+              {/* Left/right aligned tier list with highlight */}
+              <ul className="tier-list">
+                <li
+                  className={
+                    "tier-list-item" +
+                    (currentTier === "Primal Master" ? " current-tier" : "")
+                  }
+                >
+                  <span className="tier-name">Primal Master</span>
+                  <span className="tier-range">10,000,000+ $SUPRAWR</span>
+                </li>
+
+                <li
+                  className={
+                    "tier-list-item" +
+                    (currentTier === "Primal Titan" ? " current-tier" : "")
+                  }
+                >
+                  <span className="tier-name">Primal Titan</span>
+                  <span className="tier-range">1,000,000+ $SUPRAWR</span>
+                </li>
+
+                <li
+                  className={
+                    "tier-list-item" +
+                    (currentTier === "Primal Guardian" ? " current-tier" : "")
+                  }
+                >
+                  <span className="tier-name">Primal Guardian</span>
+                  <span className="tier-range">100,000+ $SUPRAWR</span>
+                </li>
+
+                <li
+                  className={
+                    "tier-list-item" +
+                    (currentTier === "Scaleborn" ? " current-tier" : "")
+                  }
+                >
+                  <span className="tier-name">Scaleborn</span>
+                  <span className="tier-range">1,000+ $SUPRAWR</span>
+                </li>
+
+                <li
+                  className={
+                    "tier-list-item" +
+                    (currentTier === "Hatchling" ? " current-tier" : "")
+                  }
+                >
+                  <span className="tier-name">Hatchling</span>
+                  <span className="tier-range">below 1,000 $SUPRAWR</span>
+                </li>
               </ul>
             </div>
           </div>

@@ -27,6 +27,17 @@
   color: #feeecd;
   font-family: monospace;
   padding: 1.25rem 1.5rem;
+  animation: modal-glow 4s ease-in-out infinite;
+}
+
+@keyframes modal-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 15px rgba(48, 214, 48, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(48, 214, 48, 0.9);
+  }
 }
 
 .modal-001-header,
