@@ -289,7 +289,7 @@ async function fetchLifetimeGasStats(
 // -------------------- LOCAL CACHE HELPERS --------------------
 
 const GAS_CACHE_PREFIX = "suprawr_gas_cache_v1:";
-const MAX_CACHE_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours TTL
+const MAX_CACHE_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours TTL (currently not enforced, but kept for future use)
 
 function getGasCacheKey(address) {
   if (!address) return null;
@@ -679,7 +679,7 @@ export default function GasFeeStats() {
           await connect();
         } catch (err) {
           console.error("GasFeeStats connect failed:", err);
-          setError("Failed to connect StarKey wallet.");
+          setError("Failed to connect Starkey wallet.");
         } finally {
           setConnecting(false);
         }
@@ -731,10 +731,18 @@ export default function GasFeeStats() {
     ? Math.ceil(cooldownRemainingMs / 1000)
     : 0;
 
+  // Detect if Starkey is installed (matches AccessProvider / docs)
+  const walletInstalled =
+    typeof window !== "undefined" &&
+    "starkey" in window &&
+    !!window.starkey?.supra;
+
   const buttonLabel = !connected
     ? connecting
       ? "Connecting…"
-      : "Connect StarKey Wallet"
+      : walletInstalled
+      ? "Connect Starkey Wallet"
+      : "Install Starkey Wallet"
     : loadingAccess
     ? "Checking Access…"
     : hasAccess === false
@@ -745,7 +753,7 @@ export default function GasFeeStats() {
     ? `Rift Energy Recharging… ${cooldownRemainingSeconds}s`
     : "Sync Rift Data";
 
-  // 🔧 Key change: removed `loadingBalances` so sync is not blocked by balance refresh
+  // Key: we do NOT block on loadingBalances here
   const isButtonDisabled =
     connecting ||
     calculating ||

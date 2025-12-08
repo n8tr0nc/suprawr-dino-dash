@@ -28,14 +28,13 @@ const BALANCE_CACHE_TTL = 3_600_000; // 60 minutes
 
 function detectProvider() {
   if (typeof window === "undefined") return null;
-  const w = window;
 
-  if (w.starkey && (w.starkey.supra || w.starkey.provider)) {
-    return w.starkey.supra || w.starkey.provider;
+  if (!("starkey" in window)) {
+    return null;
   }
-  if (w.starKeyWallet) return w.starKeyWallet;
-  if (w.starKey) return w.starKey;
-  return null;
+
+  const provider = window.starkey?.supra;
+  return provider || null;
 }
 
 function normalizeAddress(acc) {

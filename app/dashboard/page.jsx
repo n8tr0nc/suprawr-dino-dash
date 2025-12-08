@@ -81,10 +81,10 @@ export default function Page() {
             </div>
           </header>
           <GasTracker />
-          <section class="dashboard-panel panel-25">
-            <div class="dashboard-panel-body">
+          <section className="dashboard-panel panel-25">
+            <div className="dashboard-panel-body">
               <a href="https://suprawr.com" target="_blank" rel="noopener noreferrer">
-                <img src="/poster-airdrop-004.webp" title="Click to learn more!" class="poster-001" />
+                <img src="/poster-airdrop-004.webp" title="Click to learn more!" className="poster-001" />
               </a>
             </div>
           </section>

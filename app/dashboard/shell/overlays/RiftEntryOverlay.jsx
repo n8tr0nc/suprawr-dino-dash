@@ -83,6 +83,12 @@ export default function RiftEntryOverlay({ visible, onEnterGuest }) {
     isExiting ? " rift-entry-overlay--exiting" : ""
   }${isEntering ? " rift-entry-overlay--entering" : ""}`;
 
+  // Detect whether Starkey is installed
+  const walletInstalled =
+    typeof window !== "undefined" &&
+    window.starkey &&
+    window.starkey.supra;
+
   return (
     <div className={overlayClass}>
       <div className="rift-entry-noise" />
@@ -203,7 +209,11 @@ export default function RiftEntryOverlay({ visible, onEnterGuest }) {
           onClick={handleConnectClick}
           disabled={isConnecting}
         >
-          {isConnecting ? "Connecting Starkey Wallet…" : "Connect Starkey Wallet"}
+          {isConnecting
+            ? "Connecting Starkey Wallet…"
+            : walletInstalled
+            ? "Connect Starkey Wallet"
+            : "Install Starkey Wallet"}
         </button>
 
         <button

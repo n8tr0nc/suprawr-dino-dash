@@ -24,7 +24,17 @@ export default function TopBar({ onToggleSidebar }) {
     }
   };
 
-  const label = connected ? "Disconnect" : "Connect Wallet";
+  // Detect if Starkey is installed
+  const walletInstalled =
+    typeof window !== "undefined" &&
+    "starkey" in window &&
+    !!window.starkey?.supra;
+
+  const label = connected
+    ? "Disconnect"
+    : walletInstalled
+    ? "Connect Starkey Wallet"
+    : "Install Starkey Wallet";
 
   const short = address
     ? `${address.slice(0, 4)}...${address.slice(-4)}`
