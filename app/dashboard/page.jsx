@@ -69,6 +69,11 @@ export default function Page() {
         <div className="dashboard-main">
           <TopBar onToggleSidebar={handleToggleSidebar} />
           <GasTracker />
+          <section class="dashboard-panel panel-25">
+            <div class="dashboard-panel-body">
+              <img src="/poster-airdrop-004.webp" title="$SUPRAWR Airdrop Poster" />
+            </div>
+          </section>
         </div>
       </div>
 

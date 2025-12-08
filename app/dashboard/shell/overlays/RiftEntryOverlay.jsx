@@ -6,21 +6,29 @@ import { useAccess } from "../../../../features/access/useAccess";
 /* -----------------------------
    Rift Entry Overlay
 ------------------------------*/
+const OVERLAY_ANIM_MS = 2000;
 
 export default function RiftEntryOverlay({ visible, onEnterGuest }) {
   const [isExiting, setIsExiting] = useState(false);
   const [shouldRender, setShouldRender] = useState(visible);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isEntering, setIsEntering] = useState(false);
   const { connect, connected } = useAccess();
 
-  // Control mount/unmount + exit animation from the `visible` prop
+  // Control mount/unmount + entry/exit animation from the `visible` prop
   useEffect(() => {
     if (visible) {
-      // Show overlay
+      // Show overlay and play entry animation
       setShouldRender(true);
       setIsExiting(false);
       setIsConnecting(false);
-      return;
+      setIsEntering(true);
+
+      const timeoutId = setTimeout(() => {
+        setIsEntering(false);
+      }, OVERLAY_ANIM_MS);
+
+      return () => clearTimeout(timeoutId);
     }
 
     // If it was visible and is now false, play exit animation then unmount
@@ -29,20 +37,21 @@ export default function RiftEntryOverlay({ visible, onEnterGuest }) {
       const timeoutId = setTimeout(() => {
         setIsExiting(false);
         setShouldRender(false);
-      }, 700); // matches rift-terminal-overlay-fade duration
+      }, OVERLAY_ANIM_MS);
+
       return () => clearTimeout(timeoutId);
     }
   }, [visible, shouldRender]);
 
   // Auto-dismiss overlay when wallet actually becomes connected
-useEffect(() => {
-  if (connected) {
-    // force immediate exit transition
-    if (typeof onEnterGuest === "function") {
-      onEnterGuest();
+  useEffect(() => {
+    if (connected) {
+      // force immediate exit transition
+      if (typeof onEnterGuest === "function") {
+        onEnterGuest();
+      }
     }
-  }
-}, [connected, onEnterGuest]);
+  }, [connected, onEnterGuest]);
 
   if (!shouldRender) return null;
 
@@ -58,7 +67,7 @@ useEffect(() => {
       }
     } catch (err) {
       // Swallow errors here; visual feedback comes from wallet / top bar
-      console.error("RiftEntryOverlay connect error:", err);
+      console.warn("RiftEntryOverlay connect error:", err);
     } finally {
       setIsConnecting(false);
     }
@@ -72,7 +81,7 @@ useEffect(() => {
 
   const overlayClass = `rift-entry-overlay${
     isExiting ? " rift-entry-overlay--exiting" : ""
-  }`;
+  }${isEntering ? " rift-entry-overlay--entering" : ""}`;
 
   return (
     <div className={overlayClass}>
@@ -146,88 +155,70 @@ useEffect(() => {
         </div>
       </div>
 
-      {/* MAIN TERMINAL */}
-      <div className="rift-entry-terminal">
-        <div className="rift-entry-terminal-window">
-          <div className="rift-entry-terminal-header">
-            <span className="rift-entry-terminal-title">
-              SUPRAWR / RIFT-ENTRY
+      {/* CENTRAL HANDSHAKE TERMINAL */}
+      <div className="rift-entry-panel">
+        <div className="rift-entry-header">
+          <img
+            src="/suprawr001.webp"
+            alt="SUPRAWR Dino"
+            className="rift-entry-logo"
+          />
+          <div className="rift-entry-brand">
+            <span className="rift-entry-brand-main">
+              // RIFT ACCESS TERMINAL //
             </span>
-            <span className="rift-entry-terminal-status">
-              STATUS:{" "}
-              <span className="rift-entry-terminal-status-pill">
-                STANDING BY
-              </span>
+            <span className="rift-entry-brand-sub">
+              Super Unified Primal Rift Architecture · Local Supra Mainnet
             </span>
-          </div>
-
-          <div className="rift-entry-terminal-body">
-            <p className="rift-entry-line">
-              &gt; Initializing RAWRpack link… <span className="cursor" />
-            </p>
-            <p className="rift-entry-line">
-              &gt; Supra mainnet connection: <span className="ok-text">READY</span>
-            </p>
-            <p className="rift-entry-line">
-              &gt; SUPRAWR telemetry: <span className="ok-text">LISTENING</span>
-            </p>
-            <p className="rift-entry-line">
-              &gt; Dino Dash gas tracker:{" "}
-              <span className="ok-text">ARMS WARMED</span>
-            </p>
-            <p className="rift-entry-line">
-              &gt; Rift energy status: <span className="ok-text">PRIMED</span>
-            </p>
           </div>
         </div>
 
-        <div className="rift-entry-cta">
-          <div className="rift-entry-logo-block">
-            <img
-              src="/suprawr001.webp"
-              alt="SUPRAWR Dino"
-              className="rift-entry-logo"
-            />
-            <div className="rift-entry-brand">
-              <span className="rift-entry-brand-main">
-                SUPRAWR CREW // RIFT ACCESS TERMINAL
-              </span>
-              <span className="rift-entry-brand-sub">
-                Super Unified Primal Rift Architecture · Supra mainnet mirror
-              </span>
-            </div>
+        <div className="rift-entry-status-block">
+          <div className="rift-entry-status-line">
+            <span className="rift-entry-status-prefix">&gt;</span>
+            <span> SUPRA link online. Rift channels stabilized.</span>
           </div>
-
-          <div className="rift-entry-status-block">
-            <div className="rift-entry-status-line">
-              <span className="rift-entry-status-label">Rift Lock</span>
-              <span className="rift-entry-status-value">Secure · Encrypted</span>
-            </div>
-            <div className="rift-entry-status-line">
-              <span className="rift-entry-status-label">Telemetry</span>
-              <span className="rift-entry-status-value">
-                Wallet needed to read Dino Dash stats
-              </span>
-            </div>
+          <div className="rift-entry-status-line">
+            <span className="rift-entry-status-prefix">&gt;</span>
+            <span> Awaiting Starkey identity signature bound to $SUPRAWR DNA.</span>
           </div>
-
-          <button
-            type="button"
-            className="rift-entry-connect"
-            onClick={handleConnectClick}
-            disabled={isConnecting}
-          >
-            {isConnecting ? "Connecting Starkey Wallet…" : "Connect Starkey Wallet"}
-          </button>
-
-          <button
-            type="button"
-            className="rift-entry-guest"
-            onClick={handleGuestClick}
-          >
-            Enter as guest (no telemetry · no $SUPRAWR signature)
-          </button>
+          <div className="rift-entry-status-line">
+            <span className="rift-entry-status-prefix">&gt;</span>
+            {isConnecting ? (
+              <span>
+                Syncing creds across Primal Rift nodes. Handshake in progress… 
+                <span className="rift-entry-caret" />
+              </span>
+            ) : (
+              <span>
+                Connect wallet to unlock wallet logs and telemetry.
+              </span>
+            )}
+          </div>
         </div>
+
+        <button
+          type="button"
+          className="rift-entry-button"
+          onClick={handleConnectClick}
+          disabled={isConnecting}
+        >
+          {isConnecting ? "Connecting Starkey Wallet…" : "Connect Starkey Wallet"}
+        </button>
+
+        <button
+          type="button"
+          className="rift-entry-guest"
+          onClick={handleGuestClick}
+        >
+          Enter as guest (no telemetry · no $SUPRAWR signature)
+        </button>
+
+        {/*<div className="rift-entry-footnote">
+          Guest mode shows Dino Dash analytics without signing any transactions.
+          Connect later from the top-right wallet button to bind this terminal
+          to your fleet identity.
+        </div>*/}
       </div>
     </div>
   );

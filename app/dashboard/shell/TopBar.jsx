@@ -30,7 +30,8 @@ export default function TopBar({ onToggleSidebar }) {
     ? `${address.slice(0, 4)}...${address.slice(-4)}`
     : "";
 
-  const disabled = loadingBalances || loadingAccess;
+  // Disconnect should always be clickable; only block connect while loading
+  const disabled = !connected && (loadingBalances || loadingAccess);
 
   return (
     <div className="top-right-bar">

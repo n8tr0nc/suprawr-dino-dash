@@ -6,7 +6,7 @@ body {
   margin: 0;
   padding: 0;
   background-color: #020705;
-  color: #30d630; /* default body text = Green */
+  color: #30d630;
   font-family: monospace;
 }
 
@@ -14,12 +14,11 @@ main {
   text-align: left;
 }
 
-/* Generic buttons (not the main CTA) still on-brand */
 button {
   padding: 15px 30px;
   font-size: 18px;
-  color: #feeecd; /* Cream text */
-  background-color: #d5502c; /* Red */
+  color: #feeecd;
+  background-color: #d5502c;
   border: none;
   border-radius: 8px;
   cursor: pointer;
@@ -39,18 +38,33 @@ button:active {
 
 h1 {
   font-size: 3rem;
-  color: #f9d580; /* Cream headings */
+  color: #c3ffc3;
+}
+
+h2 {
+  font-size: 2.4rem;
+  color: #c3ffc3;
+}
+
+h3 {
+  font-size: 2rem;
+  color: #c3ffc3;
+}
+
+h4 {
+  font-size: 1.6rem;
+  color: #c3ffc3;
 }
 
 p {
-  font-size: 1.5rem;
+  font-size: 0.9rem;
 }
 
 .logo-container {
   margin-bottom: 20px;
 }
 
-/* Social buttons (old landing-style buttons, kept for reuse if needed) */
+/* Social Buttons */
 
 .social-buttons {
   display: flex;
@@ -66,37 +80,35 @@ p {
   text-decoration: none;
   transition: background-color 0.3s ease, box-shadow 0.3s ease,
     transform 0.08s ease;
-  box-shadow: 0px 2px 4px rgba(60, 38, 0, 0.6); /* Brown shadow */
-  color: #f9d580; /* Cream text */
+  box-shadow: 0px 2px 4px rgba(60, 38, 0, 0.6);
+  color: #f9d580;
 }
 
 /* GitHub-style button using Brown / Charcoal */
 .github {
-  background-color: #3c2600; /* Brown */
+  background-color: #3c2600;
 }
 
 .github:hover {
-  background-color: #222222; /* Charcoal */
+  background-color: #222222;
   box-shadow: 0px 4px 8px rgba(60, 38, 0, 0.8);
 }
 
-/* “Twitter” button using Green */
 .twitter {
-  background-color: #30d630; /* Green */
+  background-color: #30d630;
 }
 
 .twitter:hover {
-  background-color: #001600; /* Dark Green */
+  background-color: #001600;
   box-shadow: 0px 4px 8px rgba(60, 38, 0, 0.8);
 }
 
-/* Supra Dev Hub button using Red */
 .supra-dev-hub {
-  background-color: #d5502c; /* Red */
+  background-color: #d5502c;
 }
 
 .supra-dev-hub:hover {
-  background-color: #b43f20; /* Dark Red */
+  background-color: #b43f20;
   box-shadow: 0px 4px 8px rgba(60, 38, 0, 0.8);
 }
 

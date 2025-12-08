@@ -8,12 +8,19 @@ import React, {
   useRef,
 } from "react";
 
+// ---------------------------------------------------------
+// MASTER ACCESS GATE TOGGLE
+// Set to true  = access check enabled (normal behavior)
+// Set to false = access check completely bypassed
+// ---------------------------------------------------------
+const ACCESS_ENABLED = false;
+
 /* -----------------------------------------------------------------------------
    CONSTANTS
 ----------------------------------------------------------------------------- */
 
 // How often we allow a fresh balance fetch per wallet (ms)
-const BALANCE_CACHE_TTL = 120_000; // 2 minutes
+const BALANCE_CACHE_TTL = 3_600_000; // 60 minutes
 
 /* -----------------------------------------------------------------------------
    WALLET PROVIDER HELPERS (StarKey / window.starkey)
@@ -209,7 +216,10 @@ export function AccessProvider({ children }) {
   const fetchAllBalances = useCallback(
     async (addr, options = {}) => {
       if (!addr) return;
-      const { force = false } = options;
+      const {
+        force = false,
+        includeAccessCheck = false, // only run gate when true
+      } = options;
 
       const now = Date.now();
       if (!force && now - lastBalanceFetchRef.current < BALANCE_CACHE_TTL) {
@@ -218,7 +228,9 @@ export function AccessProvider({ children }) {
       lastBalanceFetchRef.current = now;
 
       setLoadingBalances(true);
-      setLoadingAccess(true);
+      if (includeAccessCheck) {
+        setLoadingAccess(true);
+      }
       setError(null);
 
       try {
@@ -257,7 +269,7 @@ export function AccessProvider({ children }) {
           setSupraUsdPrice(null);
         }
 
-        // SUPRAWR balance + tier + gate
+        // SUPRAWR balance + tier (always) + gate (optionally)
         let tier = null;
         let supraWrDisplay = null;
         let access = null;
@@ -270,22 +282,26 @@ export function AccessProvider({ children }) {
           supraWrDisplay = supraWrJson.balanceDisplay;
           setSupraWrBalance(supraWrDisplay);
 
+          // Always compute + set tier from SUPRAWR balance
           tier = computeTierFromSupraWr(supraWrDisplay);
           setAccessTier(tier);
 
-          if (typeof supraWrJson.meetsRequirement === "boolean") {
-            access = supraWrJson.meetsRequirement;
-          } else {
-            const clean = Number(
-              String(supraWrDisplay).replace(/,/g, "")
-            );
-            access = Number.isFinite(clean) && clean >= 1000;
+          // Only run access gate logic when explicitly requested
+          if (includeAccessCheck) {
+            if (typeof supraWrJson.meetsRequirement === "boolean") {
+              access = supraWrJson.meetsRequirement;
+            } else {
+              const clean = Number(String(supraWrDisplay).replace(/,/g, ""));
+              access = Number.isFinite(clean) && clean >= 1000;
+            }
+            setHasAccess(access);
           }
-          setHasAccess(access);
         } else {
           setSupraWrBalance(null);
-          setAccessTier(null);
-          setHasAccess(null);
+          setAccessTier(null); // no SUPRAWR → no tier to show
+          if (includeAccessCheck) {
+            setHasAccess(null);
+          }
         }
 
         // Burn total
@@ -301,24 +317,33 @@ export function AccessProvider({ children }) {
         }
         setBurnTotal(burnDisplay);
 
-        // Broadcast for any legacy listeners (old components still listening)
-        broadcastTierUpdate(
-          tier,
-          supraWrDisplay,
-          supraJson && supraJson.balanceDisplay,
-          burnDisplay
-        );
+        // Broadcast for any legacy listeners (only when we recompute gate)
+        if (includeAccessCheck) {
+          broadcastTierUpdate(
+            tier,
+            supraWrDisplay,
+            supraJson && supraJson.balanceDisplay,
+            burnDisplay
+          );
+        }
       } catch (err) {
         console.error("Balance fetch error:", err);
         setError("Failed to refresh wallet stats.");
         setSupraBalance(null);
         setSupraWrBalance(null);
         setBurnTotal(null);
-        setAccessTier(null);
-        setHasAccess(null);
+
+        if (includeAccessCheck) {
+          setAccessTier(null);
+          setHasAccess(null);
+        } else {
+          setAccessTier(null);
+        }
       } finally {
         setLoadingBalances(false);
-        setLoadingAccess(false);
+        if (includeAccessCheck) {
+          setLoadingAccess(false);
+        }
       }
     },
     [broadcastTierUpdate]
@@ -341,7 +366,17 @@ export function AccessProvider({ children }) {
             setConnected(true);
             setAddress(addr);
             broadcastWalletChange(addr, true);
-            await fetchAllBalances(addr, { force: true });
+
+            // When gate is disabled, allow access immediately
+            if (!ACCESS_ENABLED) {
+              setHasAccess(true);
+              // accessTier will be set when balances load
+            }
+
+            await fetchAllBalances(addr, {
+              force: true,
+              includeAccessCheck: ACCESS_ENABLED,
+            });
           }
         } catch (err) {
           console.warn("Auto-connect check failed:", err);
@@ -357,56 +392,72 @@ export function AccessProvider({ children }) {
     if (!connected || !address) return;
 
     const id = setInterval(() => {
-      fetchAllBalances(address, { force: false });
+      // refresh balances only, no gate
+      fetchAllBalances(address, { force: false, includeAccessCheck: false });
     }, BALANCE_CACHE_TTL);
 
     return () => clearInterval(id);
   }, [connected, address, fetchAllBalances]);
 
-  const connect = useCallback(async () => {
-    if (!provider) {
-      if (typeof window !== "undefined") {
-        window.open("https://starkey.app", "_blank");
+  const connect = useCallback(
+    async () => {
+      if (!provider) {
+        if (typeof window !== "undefined") {
+          window.open("https://starkey.app", "_blank");
+        }
+        return;
       }
-      return;
-    }
 
-    try {
-      const accounts = await connectAndGetAccounts(provider);
-      if (!accounts.length) {
-        throw new Error("StarKey did not return any accounts.");
+      try {
+        const accounts = await connectAndGetAccounts(provider);
+        if (!accounts.length) {
+          throw new Error("StarKey did not return any accounts.");
+        }
+        const addr = accounts[0];
+
+        setConnected(true);
+        setAddress(addr);
+        broadcastWalletChange(addr, true);
+
+        // When gate is disabled, allow access immediately
+        if (!ACCESS_ENABLED) {
+          setHasAccess(true);
+          // tier will be derived from SUPRAWR balance
+        }
+
+        await fetchAllBalances(addr, {
+          force: true,
+          includeAccessCheck: ACCESS_ENABLED,
+        });
+      } catch (e) {
+        console.error("Wallet connect failed:", e);
+        setError("Failed to connect wallet.");
       }
-      const addr = accounts[0];
+    },
+    [provider, broadcastWalletChange, fetchAllBalances]
+  );
 
-      setConnected(true);
-      setAddress(addr);
-      broadcastWalletChange(addr, true);
+  const disconnect = useCallback(
+    async () => {
+      await disconnectWallet(provider);
 
-      await fetchAllBalances(addr, { force: true });
-    } catch (e) {
-      console.error("Wallet connect failed:", e);
-      setError("Failed to connect wallet.");
-    }
-  }, [provider, broadcastWalletChange, fetchAllBalances]);
+      setConnected(false);
+      setAddress(null);
 
-  const disconnect = useCallback(async () => {
-    await disconnectWallet(provider);
+      setSupraBalance(null);
+      setSupraWrBalance(null);
+      setBurnTotal(null);
+      setSupraUsdPrice(null);
+      setAccessTier(null);
+      setHasAccess(null);
+      setError(null);
+      lastBalanceFetchRef.current = 0;
 
-    setConnected(false);
-    setAddress(null);
-
-    setSupraBalance(null);
-    setSupraWrBalance(null);
-    setBurnTotal(null);
-    setSupraUsdPrice(null);
-    setAccessTier(null);
-    setHasAccess(null);
-    setError(null);
-    lastBalanceFetchRef.current = 0;
-
-    broadcastWalletChange(null, false);
-    broadcastTierUpdate(null, null, null, null);
-  }, [provider, broadcastWalletChange, broadcastTierUpdate]);
+      broadcastWalletChange(null, false);
+      broadcastTierUpdate(null, null, null, null);
+    },
+    [provider, broadcastWalletChange, broadcastTierUpdate]
+  );
 
   const value = {
     providerReady,
@@ -426,7 +477,11 @@ export function AccessProvider({ children }) {
     // manual refresh from Sidebar or anywhere
     refresh: () => {
       if (address) {
-        return fetchAllBalances(address, { force: true });
+        // balances only — do NOT re-run access gate
+        return fetchAllBalances(address, {
+          force: true,
+          includeAccessCheck: false,
+        });
       }
     },
   };

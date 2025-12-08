@@ -3,6 +3,33 @@
 import React from "react";
 import { useAccess } from "../../../features/access/useAccess";
 
+// Compact formatter just for display in the sidebar
+function formatSidebarBalance(raw) {
+  if (raw == null || raw === "") return raw;
+
+  const num = Number(raw);
+  if (!Number.isFinite(num)) return raw;
+
+  const sign = num < 0 ? "-" : "";
+  const abs = Math.abs(num);
+
+  // Millions
+  if (abs >= 1_000_000) {
+    const m = abs / 1_000_000;
+    const decimals = m >= 10 ? 1 : 2; // 26.3M vs 4.58M style
+    return `${sign}~${m.toFixed(decimals)}M`;
+  }
+
+  // Thousands
+  if (abs >= 1_000) {
+    const k = abs / 1_000;
+    return `${sign}~${k.toFixed(1)}K`; // 75.4K style
+  }
+
+  // Sub-thousand – 2 decimals
+  return `${sign}~${abs.toFixed(2)}`;
+}
+
 export default function Sidebar({
   isSidebarOpen,
   onOpenRankModal,
@@ -29,6 +56,21 @@ export default function Sidebar({
       ? (parseFloat(supraBalance) * supraUsdPrice).toFixed(2)
       : null;
 
+  const formattedSupra =
+    !loadingBalances && supraBalance != null
+      ? formatSidebarBalance(supraBalance)
+      : null;
+
+  const formattedSupraWr =
+    !loadingBalances && supraWrBalance != null
+      ? formatSidebarBalance(supraWrBalance)
+      : null;
+
+  const formattedBurn =
+    !loadingBalances && burnTotal != null
+      ? formatSidebarBalance(burnTotal)
+      : null;
+
   return (
     <aside
       className={`dashboard-sidebar ${isSidebarOpen ? "sidebar-open" : ""}`}
@@ -42,7 +84,7 @@ export default function Sidebar({
           />
           <div className="sidebar-brand-title">SUPRAWR</div>
           <div className="sidebar-brand-tagline">
-            Tools for the Supra blockchain
+            Supra Wallet Telemetry
           </div>
         </div>
 
@@ -52,7 +94,7 @@ export default function Sidebar({
             className="sidebar-rank"
             onClick={onOpenRankModal}
           >
-            <span className="sidebar-holder-rank">[{accessTier}]</span>
+            <span className="sidebar-holder-rank">[Rank: {accessTier}]</span>
           </button>
         )}
 
@@ -79,7 +121,7 @@ export default function Sidebar({
                   <span className="balance-skeleton" />
                 ) : (
                   <>
-                    {supraBalance}
+                    {formattedSupra}
                     {supraNativeUsdDisplay &&
                       ` (~$${supraNativeUsdDisplay})`}
                   </>
@@ -95,7 +137,7 @@ export default function Sidebar({
                 {loadingBalances ? (
                   <span className="balance-skeleton" />
                 ) : (
-                  supraWrBalance
+                  formattedSupraWr
                 )}
               </span>
             </div>
@@ -108,7 +150,7 @@ export default function Sidebar({
                 {loadingBalances ? (
                   <span className="balance-skeleton" />
                 ) : (
-                  burnTotal
+                  formattedBurn
                 )}
               </span>
             </div>
@@ -129,7 +171,7 @@ export default function Sidebar({
           <ul className="sidebar-modules-list">
             <li className="sidebar-module sidebar-module-active">
               <span className="sidebar-module-label">Gas Tracker</span>
-              <span className="sidebar-module-badge">Testing</span>
+              <span className="sidebar-module-badge">Private Testing</span>
             </li>
             <li className="sidebar-module">
               <span className="sidebar-module-label">Feature 02</span>
@@ -167,6 +209,7 @@ export default function Sidebar({
           rel="noopener noreferrer"
           className="social-icon"
         >
+          {/* X icon SVG */}
           <svg
             stroke="currentColor"
             fill="currentColor"
@@ -185,6 +228,7 @@ export default function Sidebar({
           rel="noopener noreferrer"
           className="social-icon"
         >
+          {/* Telegram icon SVG */}
           <svg
             stroke="currentColor"
             fill="currentColor"
@@ -193,7 +237,7 @@ export default function Sidebar({
             height="24"
             width="24"
           >
-            <path d="M228.88,26.19a9,9,0,0,0-9.16-1.57L17.06,103.93a14.22,14.22,0,0,0,2.43,27.21L72,141.45V200a15.92,15.92,0,0,0,10,14.83,15.91,15.91,0,0,0,17.51-3.73l25.32-26.26L165,220a15.88,15.88,0,0,0,10.51,4,16.3,16.3,0,0,0,5-.79,15.85,15.85,0,0,0,10.67-11.63L231.77,35A9,9,0,0,0,228.88,26.19Zm-61.14,36L78.15,126.35l-49.6-9.73ZM88,200V152.52l24.79,21.74Zm87.53,8L92.85,135.5l119-85.29Z"></path>
+            <path d="M228.88,26.19a9,9,0,0,0-9.16-1.57L17.06,103.93a14.22,14.22,0,0,0,2.43,27.21L72,141.45V200a15.92,15.92,0,0,0,10,14.83,15.91,15.91,0,0,0,17.51-3.73l25.32-26.26L165,220a15.88,15.88,0,0,0,10.51,4,16.3,16.3,0,0,0,5-.79,15.85,15.85,0,0,0,10.67-11.63L231.77,35A9,9,0,0,0,228.88,26.19Zm-61.14,36L78.15,126.35l-49.6-9.73ZM104,210.93V158.75l26.73,23.46Zm68.53,7L92.85,135.5l119-85.29Z"></path>
           </svg>
         </a>
 
@@ -203,6 +247,7 @@ export default function Sidebar({
           rel="noopener noreferrer"
           className="social-icon"
         >
+          {/* Site icon SVG */}
           <svg
             xmlns="http://www.w3.org/2000/svg"
             height="24"
@@ -215,7 +260,8 @@ export default function Sidebar({
       </div>
 
       <div className="sidebar-version">
-        v0.1.0 — Built by the Suprawr Crew. Nothing here is financial advice, just stats for dinos who love data.
+        v0.1.0 — Built by the Suprawr Crew. Nothing here is financial advice,
+        just stats for dinos who love data.
       </div>
     </aside>
   );

@@ -7,7 +7,7 @@ import "./GasTracker.css";
 
 export default function GasTracker() {
   return (
-    <section className="dashboard-panel">
+    <section className="dashboard-panel panel-75">
       <div className="dashboard-panel-body">
         <GasFeeStats />
       </div>

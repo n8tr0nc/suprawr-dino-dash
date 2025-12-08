@@ -52,6 +52,32 @@ function formatUsdApproxFromSupraString(supraStr, supraUsdPrice) {
   return usd.toFixed(digits);
 }
 
+function formatApproxSupraDisplay(raw) {
+  if (raw == null) return null;
+  const num = Number(raw);
+  if (!Number.isFinite(num)) return raw;
+
+  const abs = Math.abs(num);
+
+  // Millions: ~X.XXM
+  if (abs >= 1_000_000) {
+    const val = num / 1_000_000;
+    const rounded = Math.round(val * 100) / 100;
+    return `~${rounded.toFixed(2)}M`;
+  }
+
+  // Thousands: ~X.XK
+  if (abs >= 1_000) {
+    const val = num / 1_000;
+    const rounded = Math.round(val * 10) / 10;
+    return `~${rounded.toFixed(1)}K`;
+  }
+
+  // Small values: ~X.XX
+  const roundedSmall = Math.round(num * 100) / 100;
+  return `~${roundedSmall.toFixed(2)}`;
+}
+
 // -------------------- GAS FORMATTER --------------------
 
 function formatSupraFromUnits(units) {
@@ -487,11 +513,13 @@ export default function GasFeeStats() {
 
       const cache = loadGasCache(addr);
 
+      // No cache yet → first-time sync runs automatically
       if (!cache) {
         await runGasCalculationWithCache(addr, { isManualRecalc: false });
         return;
       }
 
+      // Cache exists → always trust it and load instantly
       const updatedAtMs =
         typeof cache.updatedAtMs === "number" ? cache.updatedAtMs : 0;
 
@@ -506,13 +534,7 @@ export default function GasFeeStats() {
       setProgressPercent(0);
       setHasStats(true);
 
-      const cacheAgeMs = Date.now() - updatedAtMs;
-
-      if (cacheAgeMs <= MAX_CACHE_AGE_MS) {
-        return;
-      }
-
-      await runGasCalculationWithCache(addr, { isManualRecalc: false });
+      // No automatic re-sync based on age — manual sync only via button
     },
     [hasAccess, runGasCalculationWithCache]
   );
@@ -723,11 +745,11 @@ export default function GasFeeStats() {
     ? `Rift Energy Recharging… ${cooldownRemainingSeconds}s`
     : "Sync Rift Data";
 
+  // 🔧 Key change: removed `loadingBalances` so sync is not blocked by balance refresh
   const isButtonDisabled =
     connecting ||
     calculating ||
     loadingAccess ||
-    loadingBalances ||
     (connected && hasAccess === false) ||
     (connected && hasAccess && hasStats && cooldownActive);
 
@@ -803,7 +825,8 @@ export default function GasFeeStats() {
 
   let totalSupraDisplay = "No data";
   if (hasStats && totalSupra) {
-    totalSupraDisplay = `~${totalSupra} $SUPRA`;
+    const approxTotalSupra = formatApproxSupraDisplay(totalSupra);
+    totalSupraDisplay = `${approxTotalSupra} $SUPRA`;
     if (totalSupraUsdDisplay) {
       totalSupraDisplay += ` (~$${totalSupraUsdDisplay})`;
     }
@@ -811,7 +834,8 @@ export default function GasFeeStats() {
 
   let avgSupraDisplay = "No data";
   if (hasStats && avgSupra) {
-    avgSupraDisplay = `~${avgSupra} $SUPRA`;
+    const approxAvgSupra = formatApproxSupraDisplay(avgSupra);
+    avgSupraDisplay = `${approxAvgSupra} $SUPRA`;
     if (avgSupraUsdDisplay) {
       avgSupraDisplay += ` (~$${avgSupraUsdDisplay})`;
     }
@@ -819,7 +843,8 @@ export default function GasFeeStats() {
 
   let monthlySupraDisplay = "No data";
   if (hasStats && monthlyAvgSupra) {
-    monthlySupraDisplay = `~${monthlyAvgSupra} $SUPRA`;
+    const approxMonthlySupra = formatApproxSupraDisplay(monthlyAvgSupra);
+    monthlySupraDisplay = `${approxMonthlySupra} $SUPRA`;
     if (monthlyAvgUsdDisplay) {
       monthlySupraDisplay += ` (~$${monthlyAvgUsdDisplay})`;
     }

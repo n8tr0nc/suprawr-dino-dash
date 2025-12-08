@@ -101,7 +101,7 @@
 }
 
 .sidebar-brand-title {
-  font-family: "Oxanium", system-ui, -apple-system, BlinkMacSystemFont,
+  font-family: var(--font-oxanium), system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;
   font-size: 1.4rem;
   letter-spacing: 0;
@@ -193,13 +193,16 @@
 /* MAIN DASHBOARD AREA */
 
 .dashboard-main {
-  flex: 1;
+  flex: 1 1;
   padding: 20px 20px 20px 320px;
   display: flex;
-  flex-direction: column;
-  gap: 24px;
+  flex-direction: row;
+  gap: 20px;
   width: 100%;
   max-width: 100%;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  align-content: flex-start;
 }
 
 .dashboard-header {
@@ -210,7 +213,7 @@
 
 .dashboard-title {
   margin: 0;
-  font-family: "Oxanium", system-ui, -apple-system, BlinkMacSystemFont,
+  font-family: var(--font-oxanium), system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;
   font-size: 1.8rem;
   letter-spacing: 0;
@@ -308,6 +311,21 @@
   opacity: 0.9;
 }
 
+.panel-75 {
+  width: 70%;
+  flex-grow: 1;
+}
+
+.panel-25 {
+  width: 20%;
+  flex-grow: 1;
+}
+
+.panel-50 {
+  width: 45%;
+  flex-grow: 1;
+}
+
 /* Responsive tweaks */
 
 @media (max-width: 1200px) {
@@ -351,10 +369,11 @@
   flex-direction: row-reverse;
   justify-content: space-between;
   align-items: center;
+  width: 100%;
 }
 
 .holder-tier-display {
-  font-family: "Oxanium", system-ui, -apple-system, BlinkMacSystemFont,
+  font-family: var(--font-oxanium), system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;
   font-weight: 600;
   font-size: 0.9rem;
@@ -366,7 +385,7 @@
 }
 
 .get-suprawr-link {
-  font-family: "Oxanium", system-ui, -apple-system, BlinkMacSystemFont,
+  font-family: var(--font-oxanium), system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;
   font-weight: 600;
   font-size: 0.9rem;
@@ -392,8 +411,8 @@
   padding: 0.55rem 1.3rem;
   background: transparent;
   border-radius: 2px;
-  font-family: /*monospace*/ "Oxanium", system-ui, -apple-system,
-    BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--font-oxanium), system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
@@ -441,7 +460,7 @@
   border: none;
   padding: 0;
   margin: 0;
-  font-family: "Oxanium", system-ui, -apple-system, BlinkMacSystemFont,
+  font-family: var(--font-oxanium), system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;
   font-weight: 600;
   font-size: 0.9rem;
@@ -636,7 +655,7 @@ button.sidebar-rank {
   justify-content: center;
   padding: 0;
   cursor: pointer;
-  font-family: "Oxanium", system-ui, -apple-system, BlinkMacSystemFont,
+  font-family: var(--font-oxanium), system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;
   font-size: 0.86rem;
   background: transparent;
@@ -675,8 +694,7 @@ button.sidebar-rank:hover {
   color: #feeecd;
   font-weight: 600;
   font-size: 0.9rem;
-  font-family: /*"Oxanium", system-ui, -apple-system, BlinkMacSystemFont,
-    "Segoe UI", sans-serif*/ monospace;
+  font-family: monospace;
 }
 
 .sidebar-holder-supra-value {
