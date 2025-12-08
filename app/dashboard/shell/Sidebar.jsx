@@ -36,11 +36,11 @@ function getRankBadgePath(tier) {
       return "/rank/hatchling-001.webp";
     case "Scaleborn":
       return "/rank/scaleborn-001.webp";
-    case "Primal Guardian":
-      return "/rank/gaurdian-001.webp"; // spelled this way in your folder
-    case "Primal Titan":
+    case "Guardian":
+      return "/rank/guardian-001.webp";
+    case "Titan":
       return "/rank/titan-001.webp";
-    case "Primal Master":
+    case "Master":
       return "/rank/master-001.webp";
     default:
       return null;

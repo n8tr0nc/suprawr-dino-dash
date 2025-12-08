@@ -106,7 +106,7 @@
   font-size: 1.4rem;
   letter-spacing: 0;
   text-transform: uppercase;
-  color: #f9d580;
+  color: #b39628;
   margin-bottom: -4px;
 }
 
@@ -289,8 +289,8 @@
   font-size: 0.7rem;
   padding: 3px 10px;
   border-radius: 2px;
-  border: 1px solid #feeecd;
-  color: #feeecd;
+  border: 1px solid #387038;
+  color: #387038;
   white-space: nowrap;
 }
 
@@ -409,12 +409,12 @@
 
 /* Top-right connect/disconnect button */
 .top-right-wallet-button {
-  padding: 0.55rem 1.3rem;
+  padding: 0.64rem 1.3rem;
   background: transparent;
   border-radius: 2px;
   font-family: var(--font-oxanium), system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;
-  font-size: 0.95rem;
+  font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
   border: 1px solid #b43f20;
@@ -893,4 +893,131 @@ button.sidebar-rank:hover {
   text-transform: uppercase;
   letter-spacing: 0;
   color: #d5502c;
+}
+
+/* Homeworld broadcast strip (left side of top bar) */
+
+.top-message-wrapper {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.top-message-strip {
+  position: relative;
+  padding: 0.7rem 0.8rem;
+  border-radius: 2px;
+  border: 1px solid #113516;
+  background: radial-gradient(
+    circle at top,
+    rgba(0, 0, 0, 0.6) 0%,
+    #001600 100%
+  );
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+  white-space: nowrap;
+  flex-grow: 1;
+}
+
+.top-message-prefix {
+  font-family: var(--font-oxanium), system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.7rem;
+  color: #feeecd;
+  flex-shrink: 0;
+  margin-bottom: -2px;
+}
+
+.top-message-text {
+  font-family: monospace;
+  font-size: 0.82rem;
+  color: #30d630;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.top-message-caret {
+  width: 7px;
+  height: 14px;
+  margin-left: 4px;
+  background: #f9d580;
+  display: inline-block;
+  animation: top-message-caret-blink 0.8s steps(2, start) infinite;
+}
+
+/* Glitch-out / blur-out exit animation (message text only) */
+
+.top-message-text--blur-out {
+  animation: top-message-blur-out 1s ease-out forwards;
+}
+
+@keyframes top-message-blur-out {
+  0% {
+    opacity: 1;
+    filter: blur(0px);
+  }
+  40% {
+    opacity: 0.9;
+    filter: blur(1px);
+  }
+  70% {
+    opacity: 0.4;
+    filter: blur(3px);
+  }
+  100% {
+    opacity: 0;
+    filter: blur(6px);
+  }
+}
+
+/* On mobile, put the broadcast under the burger + buttons */
+@media (max-width: 1024px) {
+  /* allow two rows: row 1 = burger + wallet, row 2 = broadcast 
+  .top-right-bar {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+  }*/
+  .panel-75,
+  .panel-25 {
+    width: 100%;
+  }
+
+  .top-message-wrapper {
+    /*flex-basis: 100%;
+    margin-top: 6px;*/
+    display: none; /* hide on mobile for now */
+  }
+}
+
+/* Address button in the top bar */
+.top-right-wallet-address-btn {
+  padding: 0.64rem 1.3rem;
+  border: 1px solid #b39628;
+  border-radius: 2px;
+  font-family: var(--font-oxanium), system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #b39628;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.15s ease-out;
+}
+
+.top-right-wallet-address-btn:hover {
+  color: #f9d580;
+  border-color: #f9d580;
+  box-shadow: 0 0 8px #f9d580;
+  text-shadow: 0 0 8px #f9d580;
+}
+
+.top-right-wallet-address-btn:active {
+  transform: scale(0.96);
 }

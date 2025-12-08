@@ -22,11 +22,11 @@ function getRankBadgePath(tier) {
       return "/rank/hatchling-001.webp";
     case "Scaleborn":
       return "/rank/scaleborn-001.webp";
-    case "Primal Guardian":
-      return "/rank/gaurdian-001.webp";
-    case "Primal Titan":
+    case "Guardian":
+      return "/rank/guardian-001.webp";
+    case "Titan":
       return "/rank/titan-001.webp";
-    case "Primal Master":
+    case "Master":
       return "/rank/master-001.webp";
     default:
       return null;
@@ -34,10 +34,16 @@ function getRankBadgePath(tier) {
 }
 
 export default function Page() {
-  const { connected, accessTier } = useAccess();
+  const { connected, accessTier, address } = useAccess(); 
 
   const currentTier = accessTier || null;
   const rankBadgeSrc = currentTier ? getRankBadgePath(currentTier) : null;
+
+  // Short form for modal button (same format as top bar)
+  const modalWalletShort =
+    address && connected
+      ? `${address.slice(0, 4)}...${address.slice(-4)}`
+      : "";
 
   // Sidebar open/close (mobile)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -128,8 +134,8 @@ export default function Page() {
         <Sidebar
           isSidebarOpen={isSidebarOpen}
           onOpenRankModal={handleOpenRankModal}
-          rankBadge={rankBadgeSrc}              // <-- ADDED
-          rankName={currentTier}               // <-- ADDED
+          rankBadge={rankBadgeSrc} // still passed through if needed later
+          rankName={currentTier}
         />
 
         {isSidebarOpen && (
@@ -140,7 +146,10 @@ export default function Page() {
         )}
 
         <div className="dashboard-main">
-          <TopBar onToggleSidebar={handleToggleSidebar} />
+          <TopBar
+            onToggleSidebar={handleToggleSidebar}
+            onOpenRankModal={handleOpenRankModal}
+          />
 
           <header className="dashboard-header">
             <div className="dashboard-header-left">
@@ -149,7 +158,7 @@ export default function Page() {
                   <span className="gas-icon">⛽︎</span> GAS TRACKER
                 </h1>
                 <p className="dashboard-subtitle">
-                  Track how much gas your Supra wallet has spent.
+                  Track your gas spending on your Supra wallet and get other useful fee telemetry.
                 </p>
               </div>
             </div>
@@ -198,10 +207,7 @@ export default function Page() {
             </div>
 
             <div className="modal-001-body">
-
-              {/* ------------------------ */}
-              {/* RANK BADGE AT TOP        */}
-              {/* ------------------------ */}
+              {/* RANK BADGE AT TOP */}
               {rankBadgeSrc && (
                 <div className="rank-modal-badge-wrap">
                   <img
@@ -218,33 +224,66 @@ export default function Page() {
                 </div>
               )}
 
+              {/* CONNECTED WALLET UNDER RANK */}
+              {connected && modalWalletShort && (
+                <div className="rank-modal-wallet">
+                  <span
+                    className="rank-modal-wallet-address"
+                    title="Copy wallet address"
+                    onClick={() => navigator.clipboard.writeText(address)}
+                  >
+                    {modalWalletShort}
+                  </span>
+                </div>
+              )}
+
               <p>
                 Your rank is based on your total $SUPRAWR holdings.
                 Higher tiers unlock more features inside DinoDash.
               </p>
 
               <ul className="tier-list">
-                <li className={`tier-list-item${currentTier === "Primal Master" ? " current-tier" : ""}`}>
-                  <span className="tier-name">Primal Master</span>
+                <li
+                  className={`tier-list-item${
+                    currentTier === "Master" ? " current-tier" : ""
+                  }`}
+                >
+                  <span className="tier-name">Master</span>
                   <span className="tier-range">10,000,000+ $SUPRAWR</span>
                 </li>
 
-                <li className={`tier-list-item${currentTier === "Primal Titan" ? " current-tier" : ""}`}>
-                  <span className="tier-name">Primal Titan</span>
+                <li
+                  className={`tier-list-item${
+                    currentTier === "Titan" ? " current-tier" : ""
+                  }`}
+                >
+                  <span className="tier-name">Titan</span>
                   <span className="tier-range">1,000,000+ $SUPRAWR</span>
                 </li>
 
-                <li className={`tier-list-item${currentTier === "Primal Guardian" ? " current-tier" : ""}`}>
-                  <span className="tier-name">Primal Guardian</span>
+                <li
+                  className={`tier-list-item${
+                    currentTier === "Guardian" ? " current-tier" : ""
+                  }`}
+                >
+                  <span className="tier-name">Guardian</span>
                   <span className="tier-range">100,000+ $SUPRAWR</span>
                 </li>
 
-                <li className={`tier-list-item${currentTier === "Scaleborn" ? " current-tier" : ""}`}>
+                <li
+                  className={`tier-list-item${
+                    currentTier === "Scaleborn" ? " current-tier" : ""
+                  }`}
+                >
                   <span className="tier-name">Scaleborn</span>
                   <span className="tier-range">1,000+ $SUPRAWR</span>
                 </li>
 
-                <li className={`tier-list-item${currentTier === "Hatchling" ? " current-tier" : ""}`}>
+                <li
+                  className={`tier-list-item${
+                    currentTier === "Hatchling" ? " current-tier" : ""
+                  }`}
+                >
                   <span className="tier-name">Hatchling</span>
                   <span className="tier-range">below 1,000 $SUPRAWR</span>
                 </li>

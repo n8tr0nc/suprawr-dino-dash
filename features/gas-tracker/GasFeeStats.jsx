@@ -111,9 +111,9 @@ function computeHolderRankFromDisplay(balanceDisplay) {
 
   if (whole <= 0n) return null;
 
-  if (whole >= 10_000_000n) return "Primal Master";
-  if (whole >= 1_000_000n) return "Primal Titan";
-  if (whole >= 100_000n) return "Primal Guardian";
+  if (whole >= 10_000_000n) return "Master";
+  if (whole >= 1_000_000n) return "Titan";
+  if (whole >= 100_000n) return "Guardian";
   if (whole >= 1_000n) return "Scaleborn";
   return "Hatchling";
 }

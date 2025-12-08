@@ -101,7 +101,7 @@
   padding: 0.9rem 1rem;
   background: transparent;
   border-radius: 2px;
-  font-family: "Oxanium", system-ui, -apple-system, BlinkMacSystemFont,
+  font-family: var(--font-oxanium), system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;
   font-size: 0.95rem;
   font-weight: 600;
@@ -265,7 +265,6 @@
 .progress-status {
   font-family: monospace;
   color: #30d630;
-  white-space: nowrap;
 }
 
 /* Error alert inside Gas Tracker */
