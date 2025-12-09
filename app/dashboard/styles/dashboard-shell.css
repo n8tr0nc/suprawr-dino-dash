@@ -916,7 +916,7 @@ button.sidebar-rank:hover {
 
 .top-message-strip {
   position: relative;
-  padding: 0.7rem 0.8rem;
+  padding: 0.2rem 0.8rem;
   border-radius: 2px;
   border: 1px solid #113516;
   background: radial-gradient(
@@ -932,6 +932,14 @@ button.sidebar-rank:hover {
 
   flex: 1 1 auto; /* fill available space, but allowed to shrink */
   min-width: 0; /* CRITICAL: let it shrink inside the bar */
+}
+
+.top-message-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  object-fit: contain;
+  margin-right: 6px;
 }
 
 .top-message-prefix {

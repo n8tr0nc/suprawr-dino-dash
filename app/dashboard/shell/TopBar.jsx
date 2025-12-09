@@ -142,6 +142,11 @@ export default function TopBar({ onToggleSidebar, onOpenRankModal }) {
           }
           onAnimationEnd={handleGlitchAnimationEnd}
         >
+          <img
+            src="/link-001.webp"
+            alt="link icon"
+            className="top-message-icon"
+          />
           <span className="top-message-prefix">RAWRION PRIME // LINK:</span>
           <span
             className={
