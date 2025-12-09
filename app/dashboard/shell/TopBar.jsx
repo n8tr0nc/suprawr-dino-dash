@@ -28,10 +28,10 @@ const HOMEWORLD_MESSAGES = [
   "Homeworld ping: The void is vast. Your address is not lost in it.",
   "Rift relay: Supra gas flows like magma. You’re mapping the lava.",
   "Rawrion Prime closing note: When in doubt, sync the Rift and proceed.",
-  "Homeworld relay: The SUPRAWR airdrop nears. Those aligned with the Rift will feast first.",
-  "Dimensional broadcast: The SUPRAWR airdrop surges through the Rift. Prepare your wallets, Crew.",
-  "Command channel: SUPRAWR flows where the data is richest. Keep tracking, Dino Dashers.",
-  "Rawrion Prime whispers: A great airdrop wave is forming. Only the synced will catch it.",
+  "Homeworld relay: The SUPRAWR airdrop nears. Those aligned with the Rift will feast first. <a href='https://suprawr.com/airdrop' target='_blank' rel='noopener noreferrer'>Learn more >></a>",
+  "Dimensional broadcast: The SUPRAWR airdrop surges through the Rift. Prepare your wallets, Crew. <a href='https://suprawr.com/airdrop' target='_blank' rel='noopener noreferrer'>Learn more >>",
+  "Command channel: SUPRAWR flows where the data is richest. Keep tracking, RAWRpack. <a href='https://suprawr.com/airdrop' target='_blank' rel='noopener noreferrer'>Learn more >>",
+  "Rawrion Prime whispers: A great airdrop wave is forming. Only the synced will catch it. <a href='https://suprawr.com/airdrop' target='_blank' rel='noopener noreferrer'>Learn more >>",
 ];
 
 const MESSAGE_VISIBLE_MS = 10_000; // 10 seconds
@@ -59,11 +59,8 @@ export default function TopBar({ onToggleSidebar, onOpenRankModal }) {
   const handleClick = async () => {
     if (connected) {
       await disconnect();
-      // overlay behavior is handled in page.jsx by watching `connected === false`
     } else {
       await connect();
-      // connecting here does NOT auto-close the terminal overlay
-      // (overlay only closes when its own "enter" action fires)
     }
   };
 
@@ -83,7 +80,6 @@ export default function TopBar({ onToggleSidebar, onOpenRankModal }) {
     ? `${address.slice(0, 4)}...${address.slice(-4)}`
     : "";
 
-  // Disconnect should always be clickable; only block connect while loading
   const disabled = !connected && (loadingBalances || loadingAccess);
 
   // ----------------------------------------
@@ -137,39 +133,7 @@ export default function TopBar({ onToggleSidebar, onOpenRankModal }) {
 
   return (
     <div className="top-right-bar">
-      {onToggleSidebar && (
-        <button
-          type="button"
-          className="mobile-menu-toggle"
-          onClick={onToggleSidebar}
-        >
-          ☰
-        </button>
-      )}
-
-      {/* Wallet controls stay on the right */}
-      <div className="top-right-wallet-group">
-        {connected && (
-          <button
-            type="button"
-            className="top-right-wallet-address-btn"
-            onClick={onOpenRankModal}
-            title="View rank details"
-          >
-            {short}
-          </button>
-        )}
-
-        <button
-          className="top-right-wallet-button"
-          onClick={handleClick}
-          disabled={disabled}
-        >
-          {label}
-        </button>
-      </div>
-
-      {/* Homeworld broadcast – appears on the LEFT (because .top-right-bar uses row-reverse on desktop) */}
+      {/* LEFT: Homeworld broadcast */}
       <div className="top-message-wrapper">
         <div
           className={
@@ -184,10 +148,43 @@ export default function TopBar({ onToggleSidebar, onOpenRankModal }) {
               "top-message-text" +
               (phase === "glitch" ? " top-message-text--blur-out" : "")
             }
-          >
-            {displayedText}
-          </span>
+            dangerouslySetInnerHTML={{ __html: displayedText }}
+          ></span>
           {phase === "typing" && <span className="top-message-caret" />}
+        </div>
+      </div>
+
+      {/* RIGHT: burger + wallet controls */}
+      <div className="top-right-controls">
+        {onToggleSidebar && (
+          <button
+            type="button"
+            className="mobile-menu-toggle"
+            onClick={onToggleSidebar}
+          >
+            ☰
+          </button>
+        )}
+
+        <div className="top-right-wallet-group">
+          {connected && (
+            <button
+              type="button"
+              className="top-right-wallet-address-btn"
+              onClick={onOpenRankModal}
+              title="View rank details"
+            >
+              {short}
+            </button>
+          )}
+
+          <button
+            className="top-right-wallet-button"
+            onClick={handleClick}
+            disabled={disabled}
+          >
+            {label}
+          </button>
         </div>
       </div>
     </div>
