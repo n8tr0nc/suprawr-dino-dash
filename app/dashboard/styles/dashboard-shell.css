@@ -17,6 +17,12 @@
   transition: opacity 0.5s ease-out, filter 0.5s ease-out;
 }
 
+/* NEW: hide dashboard when entry overlay is active */
+.dashboard-shell--hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
 /* Fade-out state when disconnecting back to terminal */
 .dashboard-shell--fading-out {
   opacity: 0;
@@ -902,6 +908,68 @@ button.sidebar-rank:hover {
   text-transform: uppercase;
   letter-spacing: 0;
   color: #d5502c;
+}
+
+/* NEW: circular orb skeleton for rank (sidebar) */
+
+.sidebar-rank--skeleton {
+  cursor: default;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* circular orb skeleton */
+.sidebar-rank-orbit-skeleton {
+  position: relative;
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  /*background: radial-gradient(circle at center, #031003 0%, #000800 90%);
+  border: 1px solid #113516;*/
+  overflow: visible;
+}
+
+.sidebar-rank-orbit-skeleton::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+
+  /* bright core */
+  background: radial-gradient(
+    circle,
+    rgba(0, 255, 140, 1) 0%,
+    rgba(0, 255, 140, 0.9) 45%,
+    rgba(0, 255, 140, 0.6) 70%,
+    rgba(0, 255, 140, 0) 100%
+  );
+
+  /* narrow trailing tail along orbit */
+  box-shadow: 0 0 8px #30d630;
+
+  /* orbit rotation */
+  transform: translate(-50%, -50%) rotate(0deg) translate(0, -16px);
+  transform-origin: center center;
+  animation: rank-orbit 1.8s linear infinite;
+}
+
+@keyframes rank-orbit {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg) translate(0, -16px);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(360deg) translate(0, -16px);
+  }
+}
+
+/* hide the bar skeleton entirely */
+.sidebar-rank-label-skeleton {
+  display: none;
 }
 
 /* Homeworld broadcast strip (left side of top bar) */

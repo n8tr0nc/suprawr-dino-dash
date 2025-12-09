@@ -476,6 +476,8 @@ export function AccessProvider({ children }) {
     // manual refresh from Sidebar or anywhere
     refresh: () => {
       if (address) {
+        // Clear rank so skeletons show during refresh
+        setAccessTier(null);
         // balances only — do NOT re-run access gate
         return fetchAllBalances(address, {
           force: true,

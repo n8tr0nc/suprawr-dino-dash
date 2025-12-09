@@ -91,6 +91,7 @@ export default function RiftEntryOverlay({ visible, onEnterGuest }) {
 
   return (
     <div className={overlayClass}>
+      <div className="rift-connect-bg-mobile" />
       <div className="rift-entry-noise" />
       <div className="rift-entry-reticle" />
 

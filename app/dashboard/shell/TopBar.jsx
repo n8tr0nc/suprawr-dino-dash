@@ -56,6 +56,18 @@ export default function TopBar({ onToggleSidebar, onOpenRankModal }) {
     loadingAccess,
   } = useAccess();
 
+  const [walletInstalled, setWalletInstalled] = useState(false);
+
+  // Detect if Starkey is installed AFTER mount to avoid hydration mismatch
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const hasStarkey =
+      "starkey" in window && !!window.starkey?.supra;
+
+    setWalletInstalled(hasStarkey);
+  }, []);
+
   const handleClick = async () => {
     if (connected) {
       await disconnect();
@@ -63,12 +75,6 @@ export default function TopBar({ onToggleSidebar, onOpenRankModal }) {
       await connect();
     }
   };
-
-  // Detect if Starkey is installed
-  const walletInstalled =
-    typeof window !== "undefined" &&
-    "starkey" in window &&
-    !!window.starkey?.supra;
 
   const label = connected
     ? "Disconnect"
@@ -82,9 +88,9 @@ export default function TopBar({ onToggleSidebar, onOpenRankModal }) {
 
   const disabled = !connected && (loadingBalances || loadingAccess);
 
-  // ----------------------------------------
-  // Homeworld broadcast state
-  // ----------------------------------------
+  // ---------------------------------------- 
+  // Homeworld broadcast state 
+  // ---------------------------------------- 
 
   const [messageIndex, setMessageIndex] = useState(() =>
     Math.floor(Math.random() * HOMEWORLD_MESSAGES.length)

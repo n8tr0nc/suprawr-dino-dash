@@ -47,10 +47,7 @@ function getRankBadgePath(tier) {
   }
 }
 
-export default function Sidebar({
-  isSidebarOpen,
-  onOpenRankModal,
-}) {
+export default function Sidebar({ isSidebarOpen, onOpenRankModal }) {
   const {
     connected,
     address,
@@ -108,9 +105,9 @@ export default function Sidebar({
         </div>
 
         {/* ------------------------------ */}
-        {/*   RANK BADGE BUTTON            */}
+        {/*   RANK BADGE / SKELETON        */}
         {/* ------------------------------ */}
-        {accessTier && (
+        {accessTier ? (
           <button
             type="button"
             className="sidebar-rank"
@@ -126,7 +123,15 @@ export default function Sidebar({
 
             <span className="sidebar-rank-label">{accessTier}</span>
           </button>
-        )}
+        ) : loadingBalances && connected ? (
+          <div
+            className="sidebar-rank sidebar-rank--skeleton"
+            aria-hidden="true"
+          >
+            <span className="sidebar-rank-orbit-skeleton" />
+            <span className="sidebar-rank-label-skeleton" />
+          </div>
+        ) : null}
 
         <div className="sidebar-section">
           <div className="sidebar-section-header balances-inside">

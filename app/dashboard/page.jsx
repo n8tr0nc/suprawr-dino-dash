@@ -34,7 +34,7 @@ function getRankBadgePath(tier) {
 }
 
 export default function Page() {
-  const { connected, accessTier, address } = useAccess(); 
+  const { connected, accessTier, address, loadingBalances } = useAccess();
 
   const currentTier = accessTier || null;
   const rankBadgeSrc = currentTier ? getRankBadgePath(currentTier) : null;
@@ -44,6 +44,8 @@ export default function Page() {
     address && connected
       ? `${address.slice(0, 4)}...${address.slice(-4)}`
       : "";
+
+  const isRankLoaded = !!(rankBadgeSrc && currentTier);
 
   // Sidebar open/close (mobile)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -120,6 +122,11 @@ export default function Page() {
     };
   }, []);
 
+  // Hide dashboard shell visually whenever the entry overlay is active
+  const dashboardShellClass = `dashboard-shell${
+    showEntryOverlay ? " dashboard-shell--hidden" : ""
+  }`;
+
   return (
     <div className="dashboard-root">
       {/* Rift entry overlay */}
@@ -130,12 +137,10 @@ export default function Page() {
       />
 
       {/* Dashboard Shell */}
-      <div className="dashboard-shell">
+      <div className={dashboardShellClass}>
         <Sidebar
           isSidebarOpen={isSidebarOpen}
           onOpenRankModal={handleOpenRankModal}
-          rankBadge={rankBadgeSrc} // still passed through if needed later
-          rankName={currentTier}
         />
 
         {isSidebarOpen && (
@@ -158,7 +163,8 @@ export default function Page() {
                   <span className="gas-icon">⛽︎</span> GAS TRACKER
                 </h1>
                 <p className="dashboard-subtitle">
-                  Track your gas spending on your Supra wallet and get other useful fee telemetry.
+                  Track your gas spending on your Supra wallet and get other
+                  useful fee telemetry.
                 </p>
               </div>
             </div>
@@ -176,6 +182,7 @@ export default function Page() {
                 <img
                   src="/poster-airdrop-004.webp"
                   className="poster-001"
+                  alt="SUPRAWR Airdrop Poster"
                 />
               </a>
             </div>
@@ -207,21 +214,23 @@ export default function Page() {
             </div>
 
             <div className="modal-001-body">
-              {/* RANK BADGE AT TOP */}
-              {rankBadgeSrc && (
-                <div className="rank-modal-badge-wrap">
+              {/* RANK BADGE / SKELETON AT TOP */}
+              <div className="rank-modal-badge-wrap">
+                {isRankLoaded ? (
                   <img
                     src={rankBadgeSrc}
                     alt={currentTier}
                     className="rank-modal-badge"
                   />
-                </div>
-              )}
+                ) : (
+                  <div className="rank-modal-orbit-skeleton" />
+                )}
+              </div>
 
-              {currentTier && (
-                <div className="rank-modal-tier-name">
-                  {currentTier}
-                </div>
+              {isRankLoaded ? (
+                <div className="rank-modal-tier-name">{currentTier}</div>
+              ) : (
+                <div className="rank-modal-tier-name-skeleton" />
               )}
 
               {/* CONNECTED WALLET UNDER RANK */}
@@ -230,7 +239,9 @@ export default function Page() {
                   <span
                     className="rank-modal-wallet-address"
                     title="Copy wallet address"
-                    onClick={() => navigator.clipboard.writeText(address)}
+                    onClick={() =>
+                      navigator.clipboard.writeText(address)
+                    }
                   >
                     {modalWalletShort}
                   </span>
@@ -238,8 +249,8 @@ export default function Page() {
               )}
 
               <p>
-                Your rank is based on your total $SUPRAWR holdings.
-                Higher tiers unlock more features inside DinoDash.
+                Your rank is based on your total $SUPRAWR holdings. Higher tiers
+                unlock more features inside DinoDash.
               </p>
 
               <ul className="tier-list">
@@ -249,7 +260,9 @@ export default function Page() {
                   }`}
                 >
                   <span className="tier-name">Master</span>
-                  <span className="tier-range">10,000,000+ $SUPRAWR</span>
+                  <span className="tier-range">
+                    10,000,000+ $SUPRAWR
+                  </span>
                 </li>
 
                 <li
@@ -258,7 +271,9 @@ export default function Page() {
                   }`}
                 >
                   <span className="tier-name">Titan</span>
-                  <span className="tier-range">1,000,000+ $SUPRAWR</span>
+                  <span className="tier-range">
+                    1,000,000+ $SUPRAWR
+                  </span>
                 </li>
 
                 <li
@@ -267,7 +282,9 @@ export default function Page() {
                   }`}
                 >
                   <span className="tier-name">Guardian</span>
-                  <span className="tier-range">100,000+ $SUPRAWR</span>
+                  <span className="tier-range">
+                    100,000+ $SUPRAWR
+                  </span>
                 </li>
 
                 <li
@@ -276,7 +293,9 @@ export default function Page() {
                   }`}
                 >
                   <span className="tier-name">Scaleborn</span>
-                  <span className="tier-range">1,000+ $SUPRAWR</span>
+                  <span className="tier-range">
+                    1,000+ $SUPRAWR
+                  </span>
                 </li>
 
                 <li
@@ -285,7 +304,9 @@ export default function Page() {
                   }`}
                 >
                   <span className="tier-name">Hatchling</span>
-                  <span className="tier-range">below 1,000 $SUPRAWR</span>
+                  <span className="tier-range">
+                    below 1,000 $SUPRAWR
+                  </span>
                 </li>
               </ul>
             </div>

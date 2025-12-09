@@ -155,3 +155,64 @@
 .rank-modal-wallet-address:hover {
   color: #f9d580;
 }
+
+/* NEW: circular orb skeleton for rank (modal) */
+
+.rank-modal-orbit-skeleton {
+  position: relative;
+  width: 114px;
+  height: 114px;
+  border-radius: 50%;
+  /*background: radial-gradient(circle at center, #031003 0%, #000800 90%);
+  border: 1px solid #113516;*/
+  overflow: visible;
+}
+
+.rank-modal-orbit-skeleton::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+
+  background: radial-gradient(
+    circle,
+    rgba(0, 255, 140, 1) 0%,
+    rgba(0, 255, 140, 0.9) 45%,
+    rgba(0, 255, 140, 0.6) 70%,
+    rgba(0, 255, 140, 0) 100%
+  );
+
+  /* tight, brighter tail for modal scale */
+  box-shadow: 0 0 8px #30d630;
+
+  transform: translate(-50%, -50%) rotate(0deg) translate(0, -30px);
+  transform-origin: center center;
+  animation: rank-orbit-modal 1.8s linear infinite;
+}
+
+@keyframes rank-orbit-modal {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg) translate(0, -30px);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(360deg) translate(0, -30px);
+  }
+}
+
+/* hide the bar skeleton under the orb in the rank modal */
+.rank-modal-tier-name-skeleton {
+  display: none;
+}
+
+/* re-use same keyframes name as sidebar */
+@keyframes rank-label-skeleton {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
