@@ -6,7 +6,8 @@ import React, {
   useState,
   useRef,
 } from "react";
-import { useAccess } from "../access/useAccess";
+import { useWallet } from "../wallet/useWallet";
+import { useStats } from "../stats/useStats";
 
 // RPC base URL
 const RPC_BASE_URL = "https://rpc-mainnet.supra.com";
@@ -374,16 +375,10 @@ function saveRiftCooldown(address, endMs) {
 // -------------------- MAIN COMPONENT --------------------
 
 export default function GasFeeStats() {
-  // Unified access + wallet state
-  const {
-    connected,
-    address,
-    hasAccess,
-    supraUsdPrice,
-    loadingAccess,
-    loadingBalances,
-    connect,
-  } = useAccess();
+  // NEW: split wallet + stats
+  const { connected, address, connect } = useWallet();
+  const { hasAccess, supraUsdPrice, loadingAccess, loadingBalances } =
+    useStats();
 
   // Track mount to keep walletInstalled SSR-safe
   const [mounted, setMounted] = useState(false);
@@ -459,15 +454,12 @@ export default function GasFeeStats() {
     }, INFO_MODAL_ANIM_MS);
   }, [showInfo]);
 
-  const startRiftCooldown = useCallback(
-    (addr) => {
-      if (!addr) return;
-      const end = Date.now() + COOLDOWN_MS;
-      setCooldownEndMs(end);
-      saveRiftCooldown(addr, end);
-    },
-    []
-  );
+  const startRiftCooldown = useCallback((addr) => {
+    if (!addr) return;
+    const end = Date.now() + COOLDOWN_MS;
+    setCooldownEndMs(end);
+    saveRiftCooldown(addr, end);
+  }, []);
 
   // Core calculation + cache writer
   const runGasCalculationWithCache = useCallback(
@@ -768,45 +760,42 @@ export default function GasFeeStats() {
     };
   }, []);
 
-  const handleAction = useCallback(
-    async () => {
-      setError("");
+  const handleAction = useCallback(async () => {
+    setError("");
 
-      // Not connected → use unified connect from AccessProvider
-      if (!connected) {
-        try {
-          setConnecting(true);
-          await connect();
-        } catch (err) {
-          console.error("GasFeeStats connect failed:", err);
-          setError("Failed to connect Starkey wallet.");
-        } finally {
-          setConnecting(false);
-        }
-        return;
+    // Not connected → use wallet connect
+    if (!connected) {
+      try {
+        setConnecting(true);
+        await connect();
+      } catch (err) {
+        console.error("GasFeeStats connect failed:", err);
+        setError("Failed to connect Starkey wallet.");
+      } finally {
+        setConnecting(false);
       }
+      return;
+    }
 
-      if (!address) {
-        setError("No wallet address available. Please connect again.");
-        return;
-      }
+    if (!address) {
+      setError("No wallet address available. Please connect again.");
+      return;
+    }
 
-      if (hasAccess === false) {
-        return;
-      }
+    if (hasAccess === false) {
+      return;
+    }
 
-      const isManualRecalc = !!hasStats;
+    const isManualRecalc = !!hasStats;
 
-      if (isManualRecalc) {
-        setManualSyncActive(true);
-        setIsDraining(true);
-        setDrainValue(1);
-      }
+    if (isManualRecalc) {
+      setManualSyncActive(true);
+      setIsDraining(true);
+      setDrainValue(1);
+    }
 
-      await runGasCalculationWithCache(address, { isManualRecalc });
-    },
-    [connected, address, hasAccess, hasStats, connect, runGasCalculationWithCache]
-  );
+    await runGasCalculationWithCache(address, { isManualRecalc });
+  }, [connected, address, hasAccess, hasStats, connect, runGasCalculationWithCache]);
 
   // --- Rift cooldown derived values ---
   let cooldownActive = false;
@@ -950,7 +939,9 @@ export default function GasFeeStats() {
 
   let monthlySupraDisplay = "No data";
   if (hasStats && monthlyAvgSupra) {
-    const approxMonthlySupra = formatApproxSupraDisplay(monthlyAvgSupra);
+    const approxMonthlySupra = formatApproxSupraDisplay(
+      monthlyAvgSupra
+    );
     monthlySupraDisplay = `${approxMonthlySupra} $SUPRA`;
     if (monthlyAvgUsdDisplay) {
       monthlySupraDisplay += ` (~$${monthlyAvgUsdDisplay})`;
@@ -958,7 +949,10 @@ export default function GasFeeStats() {
   }
 
   const isEnergyFull =
-    !cooldownActive && !isDraining && !manualSyncActive && energyProgress >= 0.999;
+    !cooldownActive &&
+    !isDraining &&
+    !manualSyncActive &&
+    energyProgress >= 0.999;
   const riftBarClassName = `rift-energy-bar${
     isEnergyFull ? " rift-energy-bar--full" : ""
   }`;
@@ -1040,38 +1034,39 @@ export default function GasFeeStats() {
                   connected wallet, using Supra’s public RPC.
                 </p>
                 <p>
-                  It works through the <code>coin_transactions</code> endpoint,
-                  which is the only RPC endpoint that includes gas usage
-                  details.{" "}
+                  It works through the <code>coin_transactions</code>{" "}
+                  endpoint, which is the only RPC endpoint that includes
+                  gas usage details.{" "}
                   <strong>
                     The only place full gas-fee data exists is inside the
-                    complete transaction detail, which Supra RPC currently does
-                    not expose through any public “fetch by hash” endpoint.
+                    complete transaction detail, which Supra RPC
+                    currently does not expose through any public “fetch by
+                    hash” endpoint.
                   </strong>{" "}
                   Because of this,{" "}
                   <strong>
-                    contract calls, burns, swaps, NFTs, and other non-coin
-                    actions cannot be included.
+                    contract calls, burns, swaps, NFTs, and other
+                    non-coin actions cannot be included.
                   </strong>
                 </p>
                 <p>
                   <strong>
-                    There is currently no way to compute a wallet’s total gas
-                    fees across ALL transaction types using only the public
-                    Supra RPC.
+                    There is currently no way to compute a wallet’s
+                    total gas fees across ALL transaction types using
+                    only the public Supra RPC.
                   </strong>
                 </p>
                 <p>
                   To improve performance, the tool{" "}
                   <strong>
-                    automatically syncs and calculates when you connect your
-                    wallet
+                    automatically syncs and calculates when you connect
+                    your wallet
                   </strong>
                   , then <strong>caches results for 24 hours</strong>.
                   Reconnecting within that window shows cached values
-                  instantly. After 24 hours, a fresh sync runs automatically.
-                  You can also manually force a new sync using{" "}
-                  <strong>Sync Rift Data</strong>.
+                  instantly. After 24 hours, a fresh sync runs
+                  automatically. You can also manually force a new sync
+                  using <strong>Sync Rift Data</strong>.
                 </p>
               </div>
             </div>

@@ -6,7 +6,8 @@ import React, {
   useRef,
   useCallback,
 } from "react";
-import { useAccess } from "../features/access/useAccess";
+import { useWallet } from "../features/wallet/useWallet";
+import { useStats } from "../features/stats/useStats";
 
 import OverlayRoot from "./shell/overlays/OverlayRoot";
 import Sidebar from "./shell/Sidebar";
@@ -40,7 +41,9 @@ function getRankBadgePath(tier) {
 }
 
 export default function Page() {
-  const { connected, accessTier, address } = useAccess();
+  // NEW: split access into wallet + stats
+  const { connected, address } = useWallet();
+  const { accessTier } = useStats();
 
   const currentTier = accessTier || null;
   const rankBadgeSrc = currentTier ? getRankBadgePath(currentTier) : null;

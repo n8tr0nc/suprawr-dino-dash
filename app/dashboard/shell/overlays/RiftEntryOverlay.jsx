@@ -6,7 +6,7 @@ import React, {
   useRef,
   useCallback,
 } from "react";
-import { useAccess } from "../../../features/access/useAccess";
+import { useWallet } from "../../../features/wallet/useWallet";
 
 /* -----------------------------
    Rift Entry Overlay
@@ -27,7 +27,21 @@ export default function RiftEntryOverlay({
   const [shouldRender, setShouldRender] = useState(visible);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isEntering, setIsEntering] = useState(false);
-  const { connect, connected } = useAccess();
+
+  // NEW: wallet hook instead of useAccess
+  const { connect, connected } = useWallet();
+
+  // Detect whether Starkey is installed (for button label)
+  const [walletInstalled, setWalletInstalled] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const hasStarkey =
+      "starkey" in window && !!window.starkey?.supra;
+
+    setWalletInstalled(hasStarkey);
+  }, []);
 
   // Single shared audio instance for terminal "ping" SFX
   const audioRef = useRef(null);
@@ -157,12 +171,6 @@ export default function RiftEntryOverlay({
       onEnterGuest();
     }
   };
-
-  // Detect whether Starkey is installed (for button label)
-  const walletInstalled =
-    typeof window !== "undefined" &&
-    window.starkey &&
-    window.starkey.supra;
 
   return (
     <div className={overlayClass}>

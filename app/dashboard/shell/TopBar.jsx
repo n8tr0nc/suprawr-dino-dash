@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useAccess } from "../../features/access/useAccess";
+import { useWallet } from "../../features/wallet/useWallet";
+import { useStats } from "../../features/stats/useStats";
 
 // ----------------------------------------
 // Homeworld broadcast messages
@@ -52,14 +53,11 @@ export default function TopBar({
   isBgMuted,
   onToggleBgMute,
 }) {
-  const {
-    connected,
-    address,
-    connect,
-    disconnect,
-    loadingBalances,
-    loadingAccess,
-  } = useAccess();
+  // NEW: wallet from WalletProvider
+  const { connected, address, connect, disconnect } = useWallet();
+
+  // NEW: loading flags from StatsProvider
+  const { loadingBalances, loadingAccess } = useStats();
 
   const [walletInstalled, setWalletInstalled] = useState(false);
 

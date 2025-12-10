@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
-import { useAccess } from "../../features/access/useAccess";
+import { useWallet } from "../../features/wallet/useWallet";
+import { useStats } from "../../features/stats/useStats";
 
 // Compact formatter just for display in the sidebar
 function formatSidebarBalance(raw) {
@@ -48,9 +49,8 @@ function getRankBadgePath(tier) {
 }
 
 export default function Sidebar({ isSidebarOpen, onOpenRankModal }) {
+  const { connected, address } = useWallet();
   const {
-    connected,
-    address,
     supraBalance,
     supraWrBalance,
     burnTotal,
@@ -58,7 +58,7 @@ export default function Sidebar({ isSidebarOpen, onOpenRankModal }) {
     supraUsdPrice,
     loadingBalances,
     refresh,
-  } = useAccess();
+  } = useStats();
 
   // -------------------------------
   // Refresh sound (loop while loadingBalances is true)
@@ -161,9 +161,7 @@ export default function Sidebar({ isSidebarOpen, onOpenRankModal }) {
             className="sidebar-brand-logo"
           />
           <div className="sidebar-brand-title">SUPRAWR</div>
-          <div className="sidebar-brand-tagline">
-            Supra Wallet Telemetry
-          </div>
+          <div className="sidebar-brand-tagline">Supra Wallet Telemetry</div>
         </div>
 
         {/* ------------------------------ */}
@@ -219,8 +217,7 @@ export default function Sidebar({ isSidebarOpen, onOpenRankModal }) {
                 ) : (
                   <>
                     {formattedSupra}
-                    {supraNativeUsdDisplay &&
-                      ` (~$${supraNativeUsdDisplay})`}
+                    {supraNativeUsdDisplay && ` (~$${supraNativeUsdDisplay})`}
                   </>
                 )}
               </span>
@@ -298,7 +295,7 @@ export default function Sidebar({ isSidebarOpen, onOpenRankModal }) {
         </div>
       </div>
 
-      {/* SOCIALS — unchanged */}
+      {/* SOCIALS — EXACTLY AS ORIGINAL */}
       <div className="sidebar-social">
         <a
           href="https://x.com/suprawrcoin"
