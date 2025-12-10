@@ -2,211 +2,263 @@
 
 import React, {
   createContext,
-  useContext,
-  useState,
-  useEffect,
   useCallback,
+  useEffect,
   useRef,
+  useState,
 } from "react";
-
+import { useWallet } from "../wallet/useWallet";
 import {
   TOKEN_GATING_ENABLED,
   REQUIRED_SUPRAWR_AMOUNT,
-} from "@/config/accessConfig";
-
-import { useWallet } from "@/app/features/wallet/useWallet";
+} from "../../../config/accessConfig";
 
 export const StatsContext = createContext(null);
+
+// Reuse the same TTL you had before (1 hour)
+const BALANCE_CACHE_TTL = 3_600_000; // 60 minutes
+
+// Tier logic copied from your previous AccessProvider
+function computeTierFromSupraWr(balanceDisplay) {
+  if (!balanceDisplay) return null;
+
+  const cleanedInt = String(balanceDisplay)
+    .split(".")[0]
+    .replace(/,/g, "")
+    .trim();
+
+  let whole;
+  try {
+    whole = BigInt(cleanedInt || "0");
+  } catch {
+    return null;
+  }
+
+  if (whole <= 0n) return null;
+
+  if (whole >= 10_000_000n) return "Master";
+  if (whole >= 1_000_000n) return "Titan";
+  if (whole >= 100_000n) return "Guardian";
+  if (whole >= 1_000n) return "Scaleborn";
+  return "Hatchling";
+}
+
+// Optional legacy event for anything listening on window
+function broadcastTierUpdate(tier, supraWrDisplay, supraDisplay, burnDisplay) {
+  if (typeof window === "undefined") return;
+  try {
+    window.dispatchEvent(
+      new CustomEvent("suprawr:tierUpdate", {
+        detail: {
+          holderRank: tier,
+          balanceDisplay: supraWrDisplay,
+          supraBalance: supraDisplay,
+          burnDisplay,
+        },
+      })
+    );
+  } catch {
+    // non-critical
+  }
+}
 
 export function StatsProvider({ children }) {
   const { connected, address } = useWallet();
 
-  // ------------ STATE ------------
   const [supraBalance, setSupraBalance] = useState(null);
   const [supraWrBalance, setSupraWrBalance] = useState(null);
   const [burnTotal, setBurnTotal] = useState(null);
   const [supraUsdPrice, setSupraUsdPrice] = useState(null);
 
   const [accessTier, setAccessTier] = useState(null);
-  const [hasAccess, setHasAccess] = useState(true); // ungated unless enabled
+  const [hasAccess, setHasAccess] = useState(null);
 
   const [loadingBalances, setLoadingBalances] = useState(false);
   const [loadingAccess, setLoadingAccess] = useState(false);
-
   const [error, setError] = useState(null);
 
-  const lastFetchRef = useRef(0);
-  const CACHE_TTL = 60 * 60 * 1000; // 1 hour cache, but only on manual refresh
+  const lastBalanceFetchRef = useRef(0);
 
+  // Core fetcher used by both auto-load and manual refresh
+  const fetchAllBalances = useCallback(
+    async (addr, options = {}) => {
+      if (!addr) return;
 
-  // ------------ TIER LOGIC ------------
-  function computeTier(balanceDisplay) {
-    if (!balanceDisplay) return null;
-
-    const cleaned = String(balanceDisplay).split(".")[0].replace(/,/g, "");
-    let whole;
-
-    try {
-      whole = BigInt(cleaned);
-    } catch {
-      return null;
-    }
-
-    if (whole >= 10_000_000n) return "Master";
-    if (whole >= 1_000_000n) return "Titan";
-    if (whole >= 100_000n) return "Guardian";
-    if (whole >= 1_000n) return "Scaleborn";
-    if (whole > 0n) return "Hatchling";
-    return null;
-  }
-
-
-  // ------------ FETCH HELPERS ------------
-
-  const fetchSupra = useCallback(async (addr) => {
-    const res = await fetch(`/api/supra-balance?address=${addr}`);
-    if (!res.ok) return null;
-
-    const json = await res.json();
-    return json?.balanceDisplay || null;
-  }, []);
-
-  const fetchSupraWR = useCallback(async (addr) => {
-    const res = await fetch(`/api/suprawr-balance?address=${addr}`);
-    if (!res.ok) return { display: null, meets: false };
-
-    const json = await res.json();
-    return {
-      display: json?.balanceDisplay || null,
-      meets: json?.meetsRequirement || false,
-    };
-  }, []);
-
-  const fetchBurnTotal = useCallback(async (addr) => {
-    const res = await fetch(`/api/burn-total?address=${addr}`);
-    if (!res.ok) return null;
-
-    const json = await res.json();
-    return json?.burn_suprawr || null;
-  }, []);
-
-  const fetchSupraPrice = useCallback(async () => {
-    const res = await fetch(`/api/supra-price`);
-    if (!res.ok) return null;
-
-    const json = await res.json();
-    return json?.priceUsd || null;
-  }, []);
-
-
-  // ------------ MAIN REFRESH METHOD ------------
-  const refresh = useCallback(
-    async (opts = { force: false }) => {
-      if (!connected || !address) return;
+      const {
+        force = false,
+        includeAccessCheck = TOKEN_GATING_ENABLED,
+      } = options;
 
       const now = Date.now();
-      if (!opts.force && now - lastFetchRef.current < CACHE_TTL) {
-        return; // prevent unnecessary spam
+      if (!force && now - lastBalanceFetchRef.current < BALANCE_CACHE_TTL) {
+        return;
       }
+      lastBalanceFetchRef.current = now;
 
-      lastFetchRef.current = now;
       setLoadingBalances(true);
-      setLoadingAccess(true);
+      if (includeAccessCheck) setLoadingAccess(true);
       setError(null);
 
       try {
+        const qsAddr = encodeURIComponent(addr);
+
+        const [supraRes, supraWrRes, burnRes, priceRes] = await Promise.all([
+          fetch(`/api/supra-balance?address=${qsAddr}`),
+          fetch(`/api/suprawr-balance?address=${qsAddr}`),
+          fetch(`/api/burn-total?address=${qsAddr}`),
+          fetch(`/api/supra-price?t=${Date.now()}`),
+        ]);
+
+        const supraJson = supraRes.ok ? await supraRes.json() : null;
+        const supraWrJson = supraWrRes.ok ? await supraWrRes.json() : null;
+        const burnJson = burnRes.ok ? await burnRes.json() : null;
+        const priceJson = priceRes.ok ? await priceRes.json() : null;
+
         // SUPRA balance
-        const supra = await fetchSupra(address);
-        setSupraBalance(supra);
+        let supraDisplay = null;
+        if (
+          supraJson &&
+          supraJson.ok !== false &&
+          typeof supraJson.balanceDisplay === "string"
+        ) {
+          supraDisplay = supraJson.balanceDisplay;
+        }
+        setSupraBalance(supraDisplay);
 
-        // SUPRAWR balance + requirement
-        const wr = await fetchSupraWR(address);
-        setSupraWrBalance(wr.display);
-
-        // Burn total
-        const burn = await fetchBurnTotal(address);
-        setBurnTotal(burn);
-
-        // SUPRA price
-        const price = await fetchSupraPrice();
-        setSupraUsdPrice(price);
-
-        // Tier calculation
-        const tier = computeTier(wr.display);
-        setAccessTier(tier);
-
-        // Token gate logic
-        if (TOKEN_GATING_ENABLED) {
-          const cleanWr = Number(String(wr.display).replace(/,/g, ""));
-          const meets = cleanWr >= REQUIRED_SUPRAWR_AMOUNT;
-          setHasAccess(meets);
+        // USD price for SUPRA
+        if (
+          priceJson &&
+          priceJson.ok !== false &&
+          typeof priceJson.usd === "number"
+        ) {
+          setSupraUsdPrice(priceJson.usd);
         } else {
-          setHasAccess(true);
+          setSupraUsdPrice(null);
         }
 
+        // SUPRAWR balance + tier + gate
+        let tier = null;
+        let supraWrDisplay = null;
+        let access = null;
+
+        if (
+          supraWrJson &&
+          supraWrJson.ok !== false &&
+          typeof supraWrJson.balanceDisplay === "string"
+        ) {
+          supraWrDisplay = supraWrJson.balanceDisplay;
+          setSupraWrBalance(supraWrDisplay);
+
+          tier = computeTierFromSupraWr(supraWrDisplay);
+          setAccessTier(tier);
+
+          // Gating logic (using config)
+          const clean = Number(
+            String(supraWrDisplay).replace(/,/g, "").split(".")[0]
+          );
+          const meets =
+            Number.isFinite(clean) && clean >= REQUIRED_SUPRAWR_AMOUNT;
+
+          if (includeAccessCheck) {
+            access = TOKEN_GATING_ENABLED ? meets : true;
+            setHasAccess(access);
+          } else if (!TOKEN_GATING_ENABLED) {
+            setHasAccess(true);
+          }
+        } else {
+          setSupraWrBalance(null);
+          setAccessTier(null);
+          if (includeAccessCheck) {
+            setHasAccess(TOKEN_GATING_ENABLED ? false : true);
+          }
+        }
+
+        // Burn total
+        let burnDisplay = null;
+        if (burnJson && burnJson.ok !== false) {
+          if (typeof burnJson.burnDisplay === "string") {
+            burnDisplay = burnJson.burnDisplay;
+          } else if (typeof burnJson.burn_suprawr === "string") {
+            burnDisplay = burnJson.burn_suprawr;
+          } else if (typeof burnJson.burnSupraWr === "string") {
+            burnDisplay = burnJson.burnSupraWr;
+          }
+        }
+        setBurnTotal(burnDisplay);
+
+        if (includeAccessCheck) {
+          broadcastTierUpdate(
+            tier,
+            supraWrDisplay,
+            supraDisplay,
+            burnDisplay
+          );
+        }
       } catch (err) {
-        console.error("Stats refresh error:", err);
+        console.error("[StatsProvider] balance fetch error:", err);
         setError("Failed to refresh wallet stats.");
+        setSupraBalance(null);
+        setSupraWrBalance(null);
+        setBurnTotal(null);
+        setSupraUsdPrice(null);
+        setAccessTier(null);
+        if (TOKEN_GATING_ENABLED) {
+          setHasAccess(null);
+        } else {
+          setHasAccess(true); // no gating, but stats failed
+        }
       } finally {
         setLoadingBalances(false);
         setLoadingAccess(false);
       }
     },
-    [
-      connected,
-      address,
-      fetchSupra,
-      fetchSupraWR,
-      fetchBurnTotal,
-      fetchSupraPrice,
-    ]
+    []
   );
 
+  // Exposed manual refresh (used by sidebar button)
+  const refresh = useCallback(() => {
+    if (!connected || !address) return;
+    return fetchAllBalances(address, {
+      force: true,
+      includeAccessCheck: TOKEN_GATING_ENABLED,
+    });
+  }, [connected, address, fetchAllBalances]);
 
-  // ------------ AUTO-REFRESH ON CONNECT ------------
+  // Auto-load when wallet connects / address changes
   useEffect(() => {
-    if (connected && address) {
-      refresh({ force: true });
-    } else {
-      // reset on disconnect
+    if (!connected || !address) {
       setSupraBalance(null);
       setSupraWrBalance(null);
       setBurnTotal(null);
       setSupraUsdPrice(null);
       setAccessTier(null);
-      setHasAccess(true);
+      setHasAccess(null);
+      setLoadingBalances(false);
+      setLoadingAccess(false);
       setError(null);
+      return;
     }
-  }, [connected, address, refresh]);
 
+    fetchAllBalances(address, {
+      force: true,
+      includeAccessCheck: TOKEN_GATING_ENABLED,
+    });
+  }, [connected, address, fetchAllBalances]);
 
   const value = {
-    // balances & stats
     supraBalance,
     supraWrBalance,
     burnTotal,
     supraUsdPrice,
-
-    // tier
     accessTier,
-
-    // access control
     hasAccess,
-
-    // loading flags
     loadingBalances,
     loadingAccess,
-
-    // errors
     error,
-
-    // manual refresh
     refresh,
   };
 
   return (
-    <StatsContext.Provider value={value}>
-      {children}
-    </StatsContext.Provider>
+    <StatsContext.Provider value={value}>{children}</StatsContext.Provider>
   );
 }

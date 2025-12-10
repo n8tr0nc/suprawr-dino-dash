@@ -1003,6 +1003,9 @@ export default function GasFeeStats() {
             Powered by Supra RPC & Rift Energy
           </span>
         </div>
+        <h1 className="dashboard-title">
+          <span className="gas-icon">⛽︎</span> GAS TRACKER
+        </h1>
 
         {showInfo && (
           <div

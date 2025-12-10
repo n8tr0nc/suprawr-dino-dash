@@ -3,7 +3,8 @@
 import { Oxanium } from "next/font/google";
 import "./globals.css";
 import React from "react";
-import { AccessProvider } from "./features/access/AccessProvider";
+import { WalletProvider } from "./features/wallet/WalletProvider";
+import { StatsProvider } from "./features/stats/StatsProvider";
 
 const oxanium = Oxanium({
   subsets: ["latin"],
@@ -15,7 +16,9 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" className={oxanium.variable}>
       <body>
-        <AccessProvider>{children}</AccessProvider>
+        <WalletProvider>
+          <StatsProvider>{children}</StatsProvider>
+        </WalletProvider>
       </body>
     </html>
   );

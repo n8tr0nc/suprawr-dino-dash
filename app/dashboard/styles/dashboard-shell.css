@@ -373,7 +373,7 @@
 .top-right-bar {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto; /* left = broadcast, right = controls */
-  gap: 12px;
+  gap: 10px;
   z-index: 30;
   align-items: center;
   width: 100%;
@@ -383,7 +383,7 @@
 .top-right-controls {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 10px;
   flex-shrink: 0; /* never let buttons squish */
 }
 
@@ -459,7 +459,7 @@
 .top-right-wallet-group {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 10px;
   flex-shrink: 0; /* <-- new: don’t let buttons compress or get pushed out */
 }
 

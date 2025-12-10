@@ -280,7 +280,7 @@ export default function Page() {
             onToggleBgMute={handleToggleBgMute}
           />
 
-          <header className="dashboard-header">
+          {/*<header className="dashboard-header">
             <div className="dashboard-header-left">
               <div>
                 <h1 className="dashboard-title">
@@ -292,7 +292,7 @@ export default function Page() {
                 </p>
               </div>
             </div>
-          </header>
+          </header>*/}
 
           <GasTracker />
 

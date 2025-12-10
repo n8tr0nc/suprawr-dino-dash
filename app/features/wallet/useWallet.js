@@ -3,18 +3,21 @@
 import { useContext } from "react";
 import { WalletContext } from "./WalletProvider";
 
-/**
- * useWallet()
- * Exposes wallet-only state:
- *  - providerReady
- *  - provider
- *  - connected
- *  - address
- *  - connect()
- *  - disconnect()
- *
- * No stats, no tiers, no gating logic here.
- */
 export function useWallet() {
-  return useContext(WalletContext);
+  const ctx = useContext(WalletContext);
+
+  // Safety fallback so destructuring never explodes, even if somehow
+  // used outside the provider.
+  if (!ctx) {
+    return {
+      providerReady: false,
+      walletInstalled: false,
+      connected: false,
+      address: null,
+      connect: async () => {},
+      disconnect: async () => {},
+    };
+  }
+
+  return ctx;
 }
