@@ -6,55 +6,36 @@ import React, {
   useRef,
   useCallback,
 } from "react";
-import { useAccess } from "../../../../features/access/useAccess";
+import { useWallet } from "../../../../features/wallet/useWallet";
 
 /* -----------------------------
    Rift Entry Overlay
 ------------------------------*/
 
-/**
- * Keep this in sync with the rift entry overlay
- * animation duration in rift.css (rift-terminal-overlay-enter / -fade).
- */
-const OVERLAY_ANIM_MS = 900; // ms
+// Match CSS animation length in rift.css (0.9s)
+const OVERLAY_ANIM_MS = 900;
 
-export default function RiftEntryOverlay({
-  visible,
-  onEnterGuest,
-  ensureBgAudio, // callback from Page to start bg audio
-}) {
+export default function RiftEntryOverlay({ visible, onEnterGuest }) {
   const [isExiting, setIsExiting] = useState(false);
   const [shouldRender, setShouldRender] = useState(visible);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isEntering, setIsEntering] = useState(false);
-  const { connect, connected } = useAccess();
+  const { connect, connected } = useWallet();
+  const [walletInstalled, setWalletInstalled] = useState(false);
 
-  // Single shared audio instance for terminal "ping" SFX
+  // Single shared audio instance
   const audioRef = useRef(null);
   const hasPlayedEntryRef = useRef(false);
   const hasPlayedExitRef = useRef(false);
 
-  // Create the audio object once on the client and clean it up on unmount
+  // Create the audio object once on the client
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (audioRef.current) return;
 
-    if (!audioRef.current) {
-      const audio = new Audio("/audio/terminal-000.mp3");
-      audio.volume = 0.4; // tweak to taste
-      audioRef.current = audio;
-    }
-
-    // Hardening: make sure we don't leave a playing sound behind
-    return () => {
-      const audio = audioRef.current;
-      if (!audio) return;
-      try {
-        audio.pause();
-        audio.currentTime = 0;
-      } catch {
-        // ignore
-      }
-    };
+    const audio = new Audio("/audio/terminal-000.mp3");
+    audio.volume = 0.4; // tweak to taste
+    audioRef.current = audio;
   }, []);
 
   const playTerminalSound = useCallback(() => {
@@ -129,11 +110,6 @@ export default function RiftEntryOverlay({
   }${isEntering ? " rift-entry-overlay--entering" : ""}`;
 
   const handleConnectClick = async () => {
-    // Start bg audio from this user interaction
-    if (typeof ensureBgAudio === "function") {
-      ensureBgAudio();
-    }
-
     try {
       setIsConnecting(true);
       await connect();
@@ -148,21 +124,18 @@ export default function RiftEntryOverlay({
   };
 
   const handleGuestClick = () => {
-    // Start bg audio from this user interaction
-    if (typeof ensureBgAudio === "function") {
-      ensureBgAudio();
-    }
-
     if (typeof onEnterGuest === "function") {
       onEnterGuest();
     }
   };
 
-  // Detect whether Starkey is installed (for button label)
-  const walletInstalled =
-    typeof window !== "undefined" &&
-    window.starkey &&
-    window.starkey.supra;
+  // Detect whether Starkey is installed (for button label, client-side only)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const hasStarkey =
+      "starkey" in window && !!window.starkey?.supra;
+    setWalletInstalled(hasStarkey);
+  }, []);
 
   return (
     <div className={overlayClass}>
@@ -194,7 +167,9 @@ export default function RiftEntryOverlay({
           <div className="rift-entry-hud-title">STELLAR LOCK //</div>
           <div className="rift-entry-hud-row">
             <span className="rift-entry-hud-key">System</span>
-            <span className="rift-entry-hud-value">D-88 Draxion Cluster</span>
+            <span className="rift-entry-hud-value">
+              D-88 Draxion Cluster
+            </span>
           </div>
           <div className="rift-entry-hud-row">
             <span className="rift-entry-hud-key">World</span>

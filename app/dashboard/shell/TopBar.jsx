@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useAccess } from "../../../features/access/useAccess";
+import { useWallet } from "../../../features/wallet/useWallet";
+import { useStats } from "../../../features/stats/useStats";
 
 // ----------------------------------------
 // Homeworld broadcast messages
@@ -28,10 +29,10 @@ const HOMEWORLD_MESSAGES = [
   "Homeworld ping: The void is vast. Your address is not lost in it.",
   "Rift relay: Supra gas flows like magma. You’re mapping the lava.",
   "Rawrion Prime closing note: When in doubt, sync the Rift and proceed.",
-  "Homeworld relay: The SUPRAWR airdrop nears. Those aligned with the Rift will feast first. <a href='https://suprawr.com/airdrop' target='_blank' rel='noopener noreferrer'>Learn more >></a>",
+  "Homeworld relay: The SUPRAWR airdrop nears. Those aligned with the Crew will feel the tremor first. <a href='https://suprawr.com/airdrop' target='_blank' rel='noopener noreferrer'>Learn more >></a>",
   "Dimensional broadcast: The SUPRAWR airdrop surges through the Rift. Prepare your wallets, Crew. <a href='https://suprawr.com/airdrop' target='_blank' rel='noopener noreferrer'>Learn more >>",
-  "Command channel: SUPRAWR flows where the data is richest. Keep tracking, RAWRpack. <a href='https://suprawr.com/airdrop' target='_blank' rel='noopener noreferrer'>Learn more >>",
-  "Rawrion Prime whispers: A great airdrop wave is forming. Only the synced will catch it. <a href='https://suprawr.com/airdrop' target='_blank' rel='noopener noreferrer'>Learn more >>",
+  "Command channel: SUPRAWR flows where the data is richest. Keep your telemetry sharp for the airdrop wave. <a href='https://suprawr.com/airdrop' target='_blank' rel='noopener noreferrer'>Learn more >>",
+  "Rawrion Prime whispers: A great airdrop wave is forming. Only those tracking the burn will ride it. <a href='https://suprawr.com/airdrop' target='_blank' rel='noopener noreferrer'>Learn more >>",
 ];
 
 const MESSAGE_VISIBLE_MS = 10_000; // 10 seconds
@@ -46,20 +47,15 @@ function getNextIndex(prev) {
   return next;
 }
 
-export default function TopBar({
-  onToggleSidebar,
-  onOpenRankModal,
-  isBgMuted,
-  onToggleBgMute,
-}) {
+export default function TopBar({ onToggleSidebar, onOpenRankModal }) {
   const {
     connected,
     address,
     connect,
     disconnect,
-    loadingBalances,
-    loadingAccess,
-  } = useAccess();
+  } = useWallet();
+
+  const { loadingBalances, loadingAccess } = useStats();
 
   const [walletInstalled, setWalletInstalled] = useState(false);
 
@@ -114,6 +110,7 @@ export default function TopBar({
     const id = setInterval(() => {
       i += 1;
       setDisplayedText(full.slice(0, i));
+
       if (i >= full.length) {
         clearInterval(id);
         setPhase("visible");
@@ -121,68 +118,65 @@ export default function TopBar({
     }, TYPE_INTERVAL_MS);
 
     return () => clearInterval(id);
-  }, [phase, messageIndex]);
+  }, [messageIndex, phase]);
 
-  // Visible duration
+  // Visible -> glitch -> next message cycle
   useEffect(() => {
     if (phase !== "visible") return;
 
-    const timeoutId = setTimeout(() => {
+    const visibleTimeout = setTimeout(() => {
       setPhase("glitch");
+      const glitchTimeout = setTimeout(() => {
+        setMessageIndex((prev) => getNextIndex(prev));
+        setPhase("typing");
+      }, 550); // glitch duration
+
+      return () => clearTimeout(glitchTimeout);
     }, MESSAGE_VISIBLE_MS);
 
-    return () => clearTimeout(timeoutId);
+    return () => clearTimeout(visibleTimeout);
   }, [phase]);
 
-  // After blur-out, rotate to next message
-  const handleGlitchAnimationEnd = () => {
-    if (phase !== "glitch") return;
-    setMessageIndex((prev) => getNextIndex(prev));
-    setDisplayedText("");
-    setPhase("typing");
-  };
-
-  const handleAudioToggleClick = () => {
-    if (typeof onToggleBgMute === "function") {
-      onToggleBgMute();
-    }
-  };
-
   return (
-    <div className="top-right-bar">
-      {/* LEFT: Homeworld broadcast */}
-      <div className="top-message-wrapper">
-        <div
-          className={
-            "top-message-strip" +
-            (phase === "glitch" ? " top-message-strip--glitch" : "")
-          }
-          onAnimationEnd={handleGlitchAnimationEnd}
-        >
+    <div className="top-bar">
+      {/* LEFT: logo + title */}
+      <div className="top-left">
+        <div className="top-logo-wrap">
           <img
-            src="/link-001.webp"
-            alt="link icon"
-            className="top-message-icon"
+            src="/suprawr001.webp"
+            alt="Suprawr Dino"
+            className="top-logo"
           />
-          <span className="top-message-prefix">
-            RAWRION PRIME // LINK:
-          </span>
-          <span
-            className={
-              "top-message-text" +
-              (phase === "glitch"
-                ? " top-message-text--blur-out"
-                : "")
-            }
-            dangerouslySetInnerHTML={{ __html: displayedText }}
-          ></span>
-          {phase === "typing" && (
-            <span className="top-message-caret" />
-          )}
+        </div>
+        <div className="top-title-block">
+          <div className="top-title-main">// SUPRAWR DINO DASH //</div>
+          <div className="top-title-sub">
+            Supra gas telemetry for on-chain dino degenerates.
+          </div>
         </div>
       </div>
 
-      {/* RIGHT: burger + mute + wallet controls */}
+      {/* CENTER: homeworld broadcast */}
+      <div className="top-center">
+        <div className="top-message-strip">
+          <div className="top-message-noise" />
+          <div className="top-message-glow" />
+          <div className="top-message-inner">
+            <span className="top-message-icon" />
+            <span className="top-message-prefix">RAWRION PRIME // LINK:</span>
+            <span
+              className={
+                "top-message-text" +
+                (phase === "glitch" ? " top-message-text--blur-out" : "")
+              }
+              dangerouslySetInnerHTML={{ __html: displayedText }}
+            ></span>
+            {phase === "typing" && <span className="top-message-caret" />}
+          </div>
+        </div>
+      </div>
+
+      {/* RIGHT: burger + wallet controls */}
       <div className="top-right-controls">
         {onToggleSidebar && (
           <button
@@ -193,35 +187,6 @@ export default function TopBar({
             ☰
           </button>
         )}
-
-        <button
-          type="button"
-          className={
-            "top-right-audio-toggle" +
-            (isBgMuted ? " top-right-audio-toggle--muted" : "")
-          }
-          onClick={handleAudioToggleClick}
-          aria-label={
-            isBgMuted
-              ? "Unmute background audio"
-              : "Mute background audio"
-          }
-        >
-          <span className="top-right-audio-indicator">
-            <svg
-              className="top-right-audio-icon"
-              viewBox="0 0 2048 2048"
-              aria-hidden="true"
-              focusable="false"
-            >
-              <g fill="#7ae97a">
-                <path d="M1430.7 1228.39c56.217 0 107.118 22.792 143.962 59.635 36.843 36.843 59.634 87.744 59.634 143.962 0 56.217-22.79 107.118-59.634 143.961-36.844 36.845-87.745 59.635-143.962 59.635-56.217 0-107.118-22.79-143.961-59.635-36.844-36.843-59.635-87.744-59.635-143.96 0-56.22 22.79-107.12 59.635-143.963 36.843-36.843 87.744-59.635 143.961-59.635z"/>
-                <path d="m1533.79 259.873-.006-.058 30.878-3.429c34.35-3.817 65.42 21.038 69.234 55.39.544 4.912.382 2.479.382 7.058v1081.33c0 34.613-28.08 62.694-62.694 62.694-34.613 0-62.694-28.08-62.694-62.694V388.684l-685.712 76.19v1115.53c0 34.615-28.08 62.694-62.694 62.694-34.613 0-62.694-28.08-62.694-62.694V408.814c0-32.915 25.44-58.884 57.661-62.464l778.34-86.482z"/>
-                <path d="M618.439 1382.53c56.531 0 107.717 22.918 144.767 59.968 37.05 37.05 59.968 88.236 59.968 144.767 0 56.531-22.918 107.717-59.968 144.767-37.05 37.049-88.236 59.967-144.767 59.967-56.531 0-107.717-22.918-144.767-59.967-37.049-37.05-59.968-88.235-59.968-144.767 0-56.53 22.92-107.717 59.968-144.767 37.05-37.05 88.235-59.968 144.767-59.968z"/>
-              </g>
-            </svg>
-          </span>
-        </button>
 
         <div className="top-right-wallet-group">
           {connected && (

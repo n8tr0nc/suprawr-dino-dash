@@ -1,12 +1,8 @@
 "use client";
 
-import React, {
-  useEffect,
-  useState,
-  useRef,
-  useCallback,
-} from "react";
-import { useAccess } from "../../features/access/useAccess";
+import React, { useEffect, useState, useRef } from "react";
+import { useWallet } from "../../features/wallet/useWallet";
+import { useStats } from "../../features/stats/useStats";
 
 import OverlayRoot from "./shell/overlays/OverlayRoot";
 import Sidebar from "./shell/Sidebar";
@@ -17,7 +13,6 @@ import "./styles/dashboard-shell.css";
 import "./styles/modals.css";
 
 const MODAL_ANIM_MS = 500;
-const BG_BASE_VOLUME = 0.35; // main bg volume
 
 // --------------------------
 // Rank badge resolver
@@ -40,11 +35,13 @@ function getRankBadgePath(tier) {
 }
 
 export default function Page() {
-  const { connected, accessTier, address } = useAccess();
+  const { connected, address } = useWallet();
+  const { accessTier, loadingBalances } = useStats();
 
   const currentTier = accessTier || null;
   const rankBadgeSrc = currentTier ? getRankBadgePath(currentTier) : null;
 
+  // Short form for modal button (same format as top bar)
   const modalWalletShort =
     address && connected
       ? `${address.slice(0, 4)}...${address.slice(-4)}`
@@ -60,128 +57,60 @@ export default function Page() {
   const [showRiftFx, setShowRiftFx] = useState(false);
   const [hasEnteredOnce, setHasEnteredOnce] = useState(false);
 
-  // Rank modal
+  // Rank modal state
   const [showRankModal, setShowRankModal] = useState(false);
   const [isRankModalExiting, setIsRankModalExiting] = useState(false);
+
+  // Info modal state
+  const [showInfoModal, setShowInfoModal] = useState(false);
+  const [isInfoModalExiting, setIsInfoModalExiting] = useState(false);
+
+  // Refs to manage exit animation timers so they don’t pile up
   const rankModalTimerRef = useRef(null);
+  const infoModalTimerRef = useRef(null);
 
   // --------------------------
-  // Background terminal audio
+  // Disable body scroll when any full-screen modal is open
   // --------------------------
-  const bgAudioRef = useRef(null);
-  const bgStartedRef = useRef(false);
-  const fadeIntervalRef = useRef(null);
-  const [isBgMuted, setIsBgMuted] = useState(false);
-
-  // Init audio element once
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    const hasAnyModal =
+      showRankModal ||
+      isRankModalExiting ||
+      showInfoModal ||
+      isInfoModalExiting ||
+      showEntryOverlay;
 
-    if (!bgAudioRef.current) {
-      const audio = new Audio("/audio/bg-001.mp3");
-      audio.loop = true;
-      audio.volume = isBgMuted ? 0 : BG_BASE_VOLUME;
-      bgAudioRef.current = audio;
+    if (hasAnyModal) {
+      document.body.classList.add("modal-open");
+    } else {
+      document.body.classList.remove("modal-open");
     }
 
     return () => {
-      const audio = bgAudioRef.current;
-      if (!audio) return;
-      try {
-        audio.pause();
-        audio.currentTime = 0;
-      } catch {
-        // ignore
-      }
-      if (fadeIntervalRef.current) {
-        clearInterval(fadeIntervalRef.current);
-        fadeIntervalRef.current = null;
-      }
+      document.body.classList.remove("modal-open");
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [
+    showRankModal,
+    isRankModalExiting,
+    showInfoModal,
+    isInfoModalExiting,
+    showEntryOverlay,
+  ]);
 
-  // Start bg audio from a user interaction
-  const ensureBgAudio = useCallback(() => {
-    if (bgStartedRef.current) return;
-    const audio = bgAudioRef.current;
-    if (!audio) return;
+  // --------------------------
+  // Sidebar toggle handlers
+  // --------------------------
+  const handleToggleSidebar = () => {
+    setIsSidebarOpen((prev) => !prev);
+  };
 
-    bgStartedRef.current = true;
-    audio
-      .play()
-      .catch(() => {
-        // if browser blocks, allow retry on next click
-        bgStartedRef.current = false;
-      });
-  }, []);
+  const handleCloseSidebar = () => {
+    setIsSidebarOpen(false);
+  };
 
-  // Smooth fade mute/unmute
-  useEffect(() => {
-    const audio = bgAudioRef.current;
-    if (!audio) return;
-
-    if (fadeIntervalRef.current) {
-      clearInterval(fadeIntervalRef.current);
-      fadeIntervalRef.current = null;
-    }
-
-    const target = isBgMuted ? 0 : BG_BASE_VOLUME;
-    const step = 0.05;
-    const interval = window.setInterval(() => {
-      const a = bgAudioRef.current;
-      if (!a) {
-        clearInterval(interval);
-        fadeIntervalRef.current = null;
-        return;
-      }
-
-      const diff = target - a.volume;
-      if (Math.abs(diff) <= step) {
-        a.volume = target;
-        clearInterval(interval);
-        fadeIntervalRef.current = null;
-        return;
-      }
-
-      a.volume = Math.max(
-        0,
-        Math.min(1, a.volume + Math.sign(diff) * step)
-      );
-    }, 80);
-
-    fadeIntervalRef.current = interval;
-
-    return () => {
-      if (fadeIntervalRef.current) {
-        clearInterval(fadeIntervalRef.current);
-        fadeIntervalRef.current = null;
-      }
-    };
-  }, [isBgMuted]);
-
-  const handleToggleBgMute = useCallback(() => {
-    setIsBgMuted((prev) => !prev);
-  }, []);
-
-  // Stop bg audio when wallet disconnects
-  useEffect(() => {
-    const audio = bgAudioRef.current;
-    if (!audio) return;
-
-    if (!connected) {
-      try {
-        audio.pause();
-        audio.currentTime = 0;
-      } catch {
-        // ignore
-      }
-      bgStartedRef.current = false;
-    }
-  }, [connected]);
-
-  // ---------------------------------------
-  // Entry overlay (guest or wallet enter)
-  // ---------------------------------------
+  // --------------------------
+  // Entry overlay “enter guest”
+  // --------------------------
   const handleEnterGuest = () => {
     setHasEnteredOnce(true);
     setShowEntryOverlay(false);
@@ -190,9 +119,9 @@ export default function Page() {
     setTimeout(() => setShowRiftFx(false), 700);
   };
 
-  // ---------------------------------------
+  // --------------------------
   // Rank modal open
-  // ---------------------------------------
+  // --------------------------
   const handleOpenRankModal = () => {
     if (rankModalTimerRef.current) {
       clearTimeout(rankModalTimerRef.current);
@@ -203,9 +132,9 @@ export default function Page() {
     setShowRankModal(true);
   };
 
-  // ---------------------------------------
+  // --------------------------
   // Rank modal close (with exit animation)
-  // ---------------------------------------
+// --------------------------
   const handleCloseRankModal = () => {
     if (!showRankModal) return;
 
@@ -222,37 +151,62 @@ export default function Page() {
     }, MODAL_ANIM_MS);
   };
 
-  const handleToggleSidebar = () =>
-    setIsSidebarOpen((prev) => !prev);
-
-  // Restore overlay if wallet disconnects AFTER entry
-  useEffect(() => {
-    if (!connected && hasEnteredOnce) {
-      setShowEntryOverlay(true);
+  // --------------------------
+  // Info modal open
+  // --------------------------
+  const handleOpenInfoModal = () => {
+    if (infoModalTimerRef.current) {
+      clearTimeout(infoModalTimerRef.current);
+      infoModalTimerRef.current = null;
     }
-  }, [connected, hasEnteredOnce]);
 
-  // Cleanup timers
-  useEffect(() => {
-    return () => {
-      if (rankModalTimerRef.current) {
-        clearTimeout(rankModalTimerRef.current);
-      }
-    };
-  }, []);
+    setIsInfoModalExiting(false);
+    setShowInfoModal(true);
+  };
 
+  // --------------------------
+  // Info modal close (with exit animation)
+  // --------------------------
+  const handleCloseInfoModal = () => {
+    if (!showInfoModal) return;
+
+    setIsInfoModalExiting(true);
+
+    if (infoModalTimerRef.current) {
+      clearTimeout(infoModalTimerRef.current);
+    }
+
+    infoModalTimerRef.current = setTimeout(() => {
+      setShowInfoModal(false);
+      setIsInfoModalExiting(false);
+      infoModalTimerRef.current = null;
+    }, MODAL_ANIM_MS);
+  };
+
+  // --------------------------
+  // Shell CSS classes
+  // --------------------------
   const dashboardShellClass = `dashboard-shell${
-    showEntryOverlay ? " dashboard-shell--hidden" : ""
+    showRiftFx ? " dashboard-shell--rift-fx" : ""
   }`;
 
+  const rankModalClass = `modal-001-overlay${
+    showRankModal ? " modal-001-overlay--visible" : ""
+  }${isRankModalExiting ? " modal-001-overlay--exiting" : ""}`;
+
+  const infoModalClass = `modal-001-overlay${
+    showInfoModal ? " modal-001-overlay--visible" : ""
+  }${isInfoModalExiting ? " modal-001-overlay--exiting" : ""}`;
+
+  // --------------------------
+  // Content
+  // --------------------------
   return (
     <div className="dashboard-root">
       {/* Rift entry overlay */}
       <OverlayRoot
         showEntryOverlay={showEntryOverlay}
         handleEnterGuest={handleEnterGuest}
-        showRiftFx={showRiftFx}
-        ensureBgAudio={ensureBgAudio}
       />
 
       {/* Dashboard Shell */}
@@ -262,31 +216,67 @@ export default function Page() {
           onOpenRankModal={handleOpenRankModal}
         />
 
-        {isSidebarOpen && (
-          <div
-            className="sidebar-overlay"
-            onClick={() => setIsSidebarOpen(false)}
-          />
-        )}
-
-        <div className="dashboard-main">
+        <main className="dashboard-main">
           <TopBar
             onToggleSidebar={handleToggleSidebar}
             onOpenRankModal={handleOpenRankModal}
-            isBgMuted={isBgMuted}
-            onToggleBgMute={handleToggleBgMute}
           />
 
           <header className="dashboard-header">
             <div className="dashboard-header-left">
-              <div>
-                <h1 className="dashboard-title">
-                  <span className="gas-icon">⛽︎</span> GAS TRACKER
-                </h1>
-                <p className="dashboard-subtitle">
-                  Track your gas spending on your Supra wallet and get other
-                  useful fee telemetry.
-                </p>
+              <h1 className="dashboard-title">
+                // SUPRAWR DINO DASH · GAS TRACKER //
+              </h1>
+              <p className="dashboard-subtitle">
+                Track your Supra coin ($SUPRA) gas fees and lifetime activity
+                with this experimental telemetry console. Dino Dash is a
+                community-built tool and not affiliated with Supra Labs.
+              </p>
+            </div>
+
+            <div className="dashboard-header-right">
+              <button
+                type="button"
+                className="info-badge-button"
+                onClick={handleOpenInfoModal}
+              >
+                <span className="info-badge-icon">?</span>
+                <span className="info-badge-text">How gas tracking works</span>
+              </button>
+
+              <div className="header-rank-pill">
+                <div className="header-rank-label">Holder Tier</div>
+                <div className="header-rank-content">
+                  {isRankLoaded ? (
+                    <>
+                      <button
+                        type="button"
+                        className="header-rank-badge-button"
+                        onClick={handleOpenRankModal}
+                      >
+                        <img
+                          src={rankBadgeSrc}
+                          alt={currentTier || "Current rank"}
+                          className="header-rank-badge-img"
+                        />
+                      </button>
+                      <div className="header-rank-text">
+                        <div className="header-rank-tier">
+                          {currentTier || "Hatchling"}
+                        </div>
+                        <div className="header-rank-wallet">
+                          {modalWalletShort || "No wallet connected"}
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="header-rank-loading">
+                      {loadingBalances
+                        ? "Loading rank telemetry…"
+                        : "Connect wallet to load rank."}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </header>
@@ -299,32 +289,57 @@ export default function Page() {
                 href="https://suprawr.com"
                 target="_blank"
                 rel="noopener noreferrer"
+                className="dashboard-text-link"
               >
-                <img
-                  src="/poster-airdrop-004.webp"
-                  className="poster-001"
-                  alt="SUPRAWR Airdrop Poster"
-                />
+                <span>// SUPRAWR HOME //</span>
+              </a>
+
+              <a
+                href="https://t.me/suprawr"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="dashboard-text-link"
+              >
+                <span>// JOIN THE RAWRPACK //</span>
+              </a>
+
+              <a
+                href="https://x.com/suprawrdino"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="dashboard-text-link"
+              >
+                <span>// X: @SUPRAWRDINO //</span>
+              </a>
+
+              <a
+                href="https://supra.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="dashboard-text-link"
+              >
+                <span>// SUPRA LABS //</span>
               </a>
             </div>
           </section>
-        </div>
+        </main>
       </div>
 
       {/* Rank Modal */}
-      {showRankModal && (
-        <div
-          className={`modal-001-overlay rank-modal-overlay${
-            isRankModalExiting ? " modal-001-overlay--exiting" : ""
-          }`}
-          onClick={handleCloseRankModal}
-        >
+      {showRankModal || isRankModalExiting ? (
+        <div className={rankModalClass} onClick={handleCloseRankModal}>
           <div
-            className="modal-001 rank-modal"
+            className="modal-001-container"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="modal-001-header">
-              <h3 className="modal-001-title"> </h3>
+            <header className="modal-001-header">
+              <div className="modal-001-title-block">
+                <h2 className="modal-001-title">// HOLDER RANK OVERLAY //</h2>
+                <p className="modal-001-subtitle">
+                  This is a lore-first ranking system for $SUPRAWR holders and
+                  early Dino Dash participants.
+                </p>
+              </div>
               <button
                 type="button"
                 className="modal-001-close"
@@ -332,106 +347,183 @@ export default function Page() {
               >
                 ×
               </button>
-            </div>
+            </header>
 
-            <div className="modal-001-body">
-              <div className="rank-modal-badge-wrap">
-                {isRankLoaded ? (
-                  <img
-                    src={rankBadgeSrc}
-                    alt={currentTier}
-                    className="rank-modal-badge"
-                  />
-                ) : (
-                  <div className="rank-modal-orbit-skeleton" />
-                )}
+            <div className="modal-001-body rank-modal-body">
+              <div className="rank-modal-left">
+                <div className="rank-modal-card">
+                  <div className="rank-modal-card-header">
+                    <div className="rank-modal-label">CURRENT HOLDER TIER</div>
+                  </div>
+
+                  <div className="rank-modal-current-rank">
+                    {isRankLoaded ? (
+                      <>
+                        <img
+                          src={rankBadgeSrc}
+                          alt={currentTier || "Current rank"}
+                          className="rank-modal-badge-img"
+                        />
+                        <div className="rank-modal-rank-text">
+                          <div className="rank-modal-rank-name">
+                            {currentTier || "Hatchling"}
+                          </div>
+                          <div className="rank-modal-rank-wallet">
+                            {modalWalletShort ||
+                              "Connect your Starkey wallet to view rank."}
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="rank-modal-rank-text">
+                        <div className="rank-modal-rank-name">
+                          Rank not loaded
+                        </div>
+                        <div className="rank-modal-rank-wallet">
+                          Connect your Starkey wallet and reload telemetry to
+                          see your tier.
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="rank-modal-note">
+                    Rank tiers are based on estimated $SUPRAWR balance snapshots
+                    and may shift as Dino Dash evolves. This is a community
+                    experiment — not a promise of any specific utility.
+                  </div>
+                </div>
               </div>
 
-              {isRankLoaded ? (
-                <div className="rank-modal-tier-name">{currentTier}</div>
-              ) : (
-                <div className="rank-modal-tier-name-skeleton" />
-              )}
+              <div className="rank-modal-right">
+                <div className="rank-modal-card rank-modal-card--tiers">
+                  <div className="rank-modal-card-header">
+                    <div className="rank-modal-label">TIER BREAKDOWN</div>
+                  </div>
 
-              {connected && modalWalletShort && (
-                <div className="rank-modal-wallet">
-                  <span
-                    className="rank-modal-wallet-address"
-                    title="Copy wallet address"
-                    onClick={() =>
-                      navigator.clipboard.writeText(address)
-                    }
-                  >
-                    {modalWalletShort}
-                  </span>
+                  <ul className="tier-list">
+                    <li
+                      className={`tier-list-item${
+                        currentTier === "Master" ? " current-tier" : ""
+                      }`}
+                    >
+                      <span className="tier-name">Master</span>
+                      <span className="tier-range">
+                        10,000,000+ $SUPRAWR
+                      </span>
+                    </li>
+
+                    <li
+                      className={`tier-list-item${
+                        currentTier === "Titan" ? " current-tier" : ""
+                      }`}
+                    >
+                      <span className="tier-name">Titan</span>
+                      <span className="tier-range">
+                        1,000,000 – 9,999,999 $SUPRAWR
+                      </span>
+                    </li>
+
+                    <li
+                      className={`tier-list-item${
+                        currentTier === "Guardian" ? " current-tier" : ""
+                      }`}
+                    >
+                      <span className="tier-name">Guardian</span>
+                      <span className="tier-range">
+                        100,000 – 999,999 $SUPRAWR
+                      </span>
+                    </li>
+
+                    <li
+                      className={`tier-list-item${
+                        currentTier === "Scaleborn" ? " current-tier" : ""
+                      }`}
+                    >
+                      <span className="tier-name">Scaleborn</span>
+                      <span className="tier-range">
+                        1,000+ $SUPRAWR
+                      </span>
+                    </li>
+
+                    <li
+                      className={`tier-list-item${
+                        currentTier === "Hatchling" ? " current-tier" : ""
+                      }`}
+                    >
+                      <span className="tier-name">Hatchling</span>
+                      <span className="tier-range">
+                        below 1,000 $SUPRAWR
+                      </span>
+                    </li>
+                  </ul>
                 </div>
-              )}
-
-              <p>
-                Your rank is based on your total $SUPRAWR holdings. Higher tiers
-                unlock more features inside DinoDash.
-              </p>
-
-              <ul className="tier-list">
-                <li
-                  className={`tier-list-item${
-                    currentTier === "Master" ? " current-tier" : ""
-                  }`}
-                >
-                  <span className="tier-name">Master</span>
-                  <span className="tier-range">
-                    10,000,000+ $SUPRAWR
-                  </span>
-                </li>
-
-                <li
-                  className={`tier-list-item${
-                    currentTier === "Titan" ? " current-tier" : ""
-                  }`}
-                >
-                  <span className="tier-name">Titan</span>
-                  <span className="tier-range">
-                    1,000,000+ $SUPRAWR
-                  </span>
-                </li>
-
-                <li
-                  className={`tier-list-item${
-                    currentTier === "Guardian" ? " current-tier" : ""
-                  }`}
-                >
-                  <span className="tier-name">Guardian</span>
-                  <span className="tier-range">
-                    100,000+ $SUPRAWR
-                  </span>
-                </li>
-
-                <li
-                  className={`tier-list-item${
-                    currentTier === "Scaleborn" ? " current-tier" : ""
-                  }`}
-                >
-                  <span className="tier-name">Scaleborn</span>
-                  <span className="tier-range">
-                    1,000+ $SUPRAWR
-                  </span>
-                </li>
-
-                <li
-                  className={`tier-list-item${
-                    currentTier === "Hatchling" ? " current-tier" : ""
-                  }`}
-                >
-                  <span className="tier-name">Hatchling</span>
-                  <span className="tier-range">
-                    below 1,000 $SUPRAWR
-                  </span>
-                </li>
-              </ul>
+              </div>
             </div>
           </div>
         </div>
-      )}
+      ) : null}
+
+      {/* Info Modal */}
+      {showInfoModal || isInfoModalExiting ? (
+        <div className={infoModalClass} onClick={handleCloseInfoModal}>
+          <div
+            className="modal-001-container"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <header className="modal-001-header">
+              <div className="modal-001-title-block">
+                <h2 className="modal-001-title">
+                  // HOW GAS TRACKING WORKS //
+                </h2>
+              </div>
+              <button
+                type="button"
+                className="modal-001-close"
+                onClick={handleCloseInfoModal}
+              >
+                ×
+              </button>
+            </header>
+
+            <div className="modal-001-body gas-info-body">
+              <p>
+                This tool estimates gas spent on{" "}
+                <strong>coin ($SUPRA) transactions only</strong> for your
+                connected wallet using Supra’s public RPC.
+              </p>
+              <p>
+                It uses the <code>coin_transactions</code> endpoint and may
+                exclude contract-only or system-level activity shown in some
+                explorers. When <code>gas_used</code> is unavailable, this tool
+                falls back to the RPC’s own fee fields instead of guessing from
+                <code>max_gas_amount × gas_unit_price</code>.
+              </p>
+              <p>
+                There is currently{" "}
+                <strong>
+                  no public RPC method that returns full gas details for every
+                  transaction type
+                </strong>{" "}
+                across Supra. The only place that data exists is inside the full
+                transaction detail, which Supra RPC currently does not expose
+                via a public “fetch by hash” endpoint.
+              </p>
+              <p>
+                Because of that limitation, this dashboard focuses on{" "}
+                <strong>coin ($SUPRA) transactions</strong> and surfaces
+                human-readable, wallet-level fee telemetry. It is meant as a
+                community-built experiment, not a canonical source of truth.
+              </p>
+              <p>
+                As Supra’s RPC and ecosystem evolve, this tool will adapt to
+                include richer data and more transaction types when they become
+                reliably available on-chain via public infra.
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
