@@ -16,15 +16,15 @@ import React, {
 const ACCESS_ENABLED = false;
 
 /* -----------------------------------------------------------------------------
-   CONSTANTS
------------------------------------------------------------------------------ */
+//   CONSTANTS
+// -------------------------------------------------------------------------- */
 
 // How often we allow a fresh balance fetch per wallet (ms)
 const BALANCE_CACHE_TTL = 3_600_000; // 60 minutes
 
 /* -----------------------------------------------------------------------------
-   WALLET PROVIDER HELPERS (StarKey / window.starkey)
------------------------------------------------------------------------------ */
+//   WALLET PROVIDER HELPERS (StarKey / window.starkey)
+// -------------------------------------------------------------------------- */
 
 function detectProvider() {
   if (typeof window === "undefined") return null;
@@ -127,8 +127,8 @@ async function disconnectWallet(provider) {
 }
 
 /* -----------------------------------------------------------------------------
-   ACCESS TIER HELPER
------------------------------------------------------------------------------ */
+//   ACCESS TIER HELPER
+// -------------------------------------------------------------------------- */
 
 function computeTierFromSupraWr(balanceDisplay) {
   if (!balanceDisplay) return null;
@@ -155,14 +155,14 @@ function computeTierFromSupraWr(balanceDisplay) {
 }
 
 /* -----------------------------------------------------------------------------
-   CONTEXT
------------------------------------------------------------------------------ */
+//   CONTEXT
+// -------------------------------------------------------------------------- */
 
 export const AccessContext = createContext(null);
 
 /* -----------------------------------------------------------------------------
-   PROVIDER
------------------------------------------------------------------------------ */
+//   PROVIDER
+// -------------------------------------------------------------------------- */
 
 export function AccessProvider({ children }) {
   const [provider, setProvider] = useState(null);
@@ -400,7 +400,19 @@ export function AccessProvider({ children }) {
 
   const connect = useCallback(
     async () => {
-      if (!provider) {
+      // Re-check for Starkey in case it injected after initial load
+      let activeProvider = provider;
+
+      if (!activeProvider && typeof window !== "undefined") {
+        const maybe = detectProvider();
+        if (maybe) {
+          setProvider(maybe);
+          activeProvider = maybe;
+        }
+      }
+
+      // If we still don't have a provider, THEN send to install page
+      if (!activeProvider) {
         if (typeof window !== "undefined") {
           window.open("https://starkey.app", "_blank");
         }
@@ -408,7 +420,7 @@ export function AccessProvider({ children }) {
       }
 
       try {
-        const accounts = await connectAndGetAccounts(provider);
+        const accounts = await connectAndGetAccounts(activeProvider);
         if (!accounts.length) {
           throw new Error("StarKey did not return any accounts.");
         }
