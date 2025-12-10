@@ -385,6 +385,13 @@ export default function GasFeeStats() {
     connect,
   } = useAccess();
 
+  // Track mount to keep walletInstalled SSR-safe
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const [txCount, setTxCount] = useState(0);
   const [totalSupra, setTotalSupra] = useState(null);
   const [avgSupra, setAvgSupra] = useState(null);
@@ -421,6 +428,10 @@ export default function GasFeeStats() {
 
   // run id to cancel in-flight calculations on wallet change
   const calcRunIdRef = useRef(0);
+
+  // Drain sound refs
+  const drainAudioRef = useRef(null);
+  const drainSoundPlayedRef = useRef(false);
 
   const handleOpenInfo = useCallback(() => {
     if (infoTimerRef.current) {
@@ -562,8 +573,6 @@ export default function GasFeeStats() {
       setPagesProcessed(0);
       setProgressPercent(0);
       setHasStats(true);
-
-      // No automatic re-sync based on age — manual sync only via button
     },
     [hasAccess, runGasCalculationWithCache]
   );
@@ -584,6 +593,19 @@ export default function GasFeeStats() {
       setDrainValue(1);
       setManualSyncActive(false);
       setCooldownEndMs(null);
+
+      // HARD-STOP any drain audio on disconnect
+      const a = drainAudioRef.current;
+      if (a) {
+        try {
+          a.pause();
+          a.currentTime = 0;
+        } catch {
+          // ignore
+        }
+      }
+      drainSoundPlayedRef.current = false;
+
       return;
     }
 
@@ -667,6 +689,17 @@ export default function GasFeeStats() {
     };
   }, [connected, address, cooldownEndMs]);
 
+  // Init drain sound audio once on client
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (drainAudioRef.current) return;
+
+    const audio = new Audio("/audio/drain-003.mp3");
+    audio.loop = false;
+    audio.volume = 0.4;
+    drainAudioRef.current = audio;
+  }, []);
+
   // Drain animation: 1 → 0 over ~3s when manual sync starts
   useEffect(() => {
     if (!isDraining) return;
@@ -697,11 +730,40 @@ export default function GasFeeStats() {
     };
   }, [isDraining]);
 
-  // Clean up info modal timer on unmount
+  // Play drain sound once when drain actually starts
+  useEffect(() => {
+    if (!isDraining) {
+      drainSoundPlayedRef.current = false;
+      return;
+    }
+
+    if (drainSoundPlayedRef.current) return;
+    const audio = drainAudioRef.current;
+    if (!audio) return;
+
+    try {
+      audio.currentTime = 0;
+      audio.play().catch(() => {});
+    } catch {
+      // cosmetic only
+    }
+    drainSoundPlayedRef.current = true;
+  }, [isDraining]);
+
+  // Clean up info modal timer + drain audio on unmount
   useEffect(() => {
     return () => {
       if (infoTimerRef.current) {
         clearTimeout(infoTimerRef.current);
+      }
+      const a = drainAudioRef.current;
+      if (a) {
+        try {
+          a.pause();
+          a.currentTime = 0;
+        } catch {
+          // ignore
+        }
       }
     };
   }, []);
@@ -730,7 +792,6 @@ export default function GasFeeStats() {
       }
 
       if (hasAccess === false) {
-        // Gate enforced globally; just don't run
         return;
       }
 
@@ -769,8 +830,9 @@ export default function GasFeeStats() {
     ? Math.ceil(cooldownRemainingMs / 1000)
     : 0;
 
-  // Detect if Starkey is installed (matches AccessProvider / docs)
+  // Detect if Starkey is installed (SSR-safe)
   const walletInstalled =
+    mounted &&
     typeof window !== "undefined" &&
     "starkey" in window &&
     !!window.starkey?.supra;
@@ -791,7 +853,6 @@ export default function GasFeeStats() {
     ? `Rift Energy Recharging… ${cooldownRemainingSeconds}s`
     : "Sync Rift Data";
 
-  // Key: we do NOT block on loadingBalances here
   const isButtonDisabled =
     connecting ||
     calculating ||

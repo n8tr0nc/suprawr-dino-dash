@@ -190,7 +190,7 @@
 
   transform: translate(-50%, -50%) rotate(0deg) translate(0, -30px);
   transform-origin: center center;
-  animation: rank-orbit-modal 1.8s linear infinite;
+  animation: rank-orbit-modal 1.4s linear infinite;
 }
 
 @keyframes rank-orbit-modal {

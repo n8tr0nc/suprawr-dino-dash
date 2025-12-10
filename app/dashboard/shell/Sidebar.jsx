@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { useAccess } from "../../../features/access/useAccess";
 
 // Compact formatter just for display in the sidebar
@@ -59,6 +59,68 @@ export default function Sidebar({ isSidebarOpen, onOpenRankModal }) {
     loadingBalances,
     refresh,
   } = useAccess();
+
+  // -------------------------------
+  // Refresh sound (loop while loadingBalances is true)
+  // -------------------------------
+  const refreshAudioRef = useRef(null);
+  const prevLoadingRef = useRef(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    // Init single audio instance
+    if (!refreshAudioRef.current) {
+      const audio = new Audio("/audio/refresh-002-echo.mp3");
+      audio.loop = true;
+      audio.volume = 0.4;
+      refreshAudioRef.current = audio;
+    }
+
+    const audio = refreshAudioRef.current;
+    if (!audio) return;
+
+    // On disconnect: hard-stop any playing sound and reset flag
+    if (!connected) {
+      try {
+        audio.pause();
+        audio.currentTime = 0;
+      } catch {
+        // ignore
+      }
+      prevLoadingRef.current = false;
+    } else {
+      // Only react when loadingBalances actually changes
+      if (loadingBalances && !prevLoadingRef.current) {
+        try {
+          audio.currentTime = 0;
+          audio.play().catch(() => {});
+        } catch {
+          // cosmetic only
+        }
+      } else if (!loadingBalances && prevLoadingRef.current) {
+        try {
+          audio.pause();
+          audio.currentTime = 0;
+        } catch {
+          // cosmetic only
+        }
+      }
+    }
+
+    // Track whether we consider the loop "active"
+    prevLoadingRef.current = connected && loadingBalances;
+
+    return () => {
+      if (!audio) return;
+      try {
+        audio.pause();
+        audio.currentTime = 0;
+      } catch {
+        // ignore
+      }
+    };
+  }, [loadingBalances, connected]);
 
   const shortAddress =
     address && address.length > 10

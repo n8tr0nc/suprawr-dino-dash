@@ -24,7 +24,7 @@ const HOMEWORLD_MESSAGES = [
   "Rawrion Prime to Dino Dash: Your HUD is now part of our nav network.",
   "Signal shard: Somewhere, a future dino thanks you for this telemetry.",
   "Dimensional broadcast: Every synced wallet is another sensor online.",
-  "Command channel: Remember — data first, vibes second, fun always.",
+  "Command channel: Remember — data first, vibes second, rawr always.",
   "Homeworld ping: The void is vast. Your address is not lost in it.",
   "Rift relay: Supra gas flows like magma. You’re mapping the lava.",
   "Rawrion Prime closing note: When in doubt, sync the Rift and proceed.",
@@ -46,7 +46,12 @@ function getNextIndex(prev) {
   return next;
 }
 
-export default function TopBar({ onToggleSidebar, onOpenRankModal }) {
+export default function TopBar({
+  onToggleSidebar,
+  onOpenRankModal,
+  isBgMuted,
+  onToggleBgMute,
+}) {
   const {
     connected,
     address,
@@ -88,9 +93,9 @@ export default function TopBar({ onToggleSidebar, onOpenRankModal }) {
 
   const disabled = !connected && (loadingBalances || loadingAccess);
 
-  // ---------------------------------------- 
-  // Homeworld broadcast state 
-  // ---------------------------------------- 
+  // ----------------------------------------
+  // Homeworld broadcast state
+  // ----------------------------------------
 
   const [messageIndex, setMessageIndex] = useState(() =>
     Math.floor(Math.random() * HOMEWORLD_MESSAGES.length)
@@ -137,6 +142,12 @@ export default function TopBar({ onToggleSidebar, onOpenRankModal }) {
     setPhase("typing");
   };
 
+  const handleAudioToggleClick = () => {
+    if (typeof onToggleBgMute === "function") {
+      onToggleBgMute();
+    }
+  };
+
   return (
     <div className="top-right-bar">
       {/* LEFT: Homeworld broadcast */}
@@ -153,19 +164,25 @@ export default function TopBar({ onToggleSidebar, onOpenRankModal }) {
             alt="link icon"
             className="top-message-icon"
           />
-          <span className="top-message-prefix">RAWRION PRIME // LINK:</span>
+          <span className="top-message-prefix">
+            RAWRION PRIME // LINK:
+          </span>
           <span
             className={
               "top-message-text" +
-              (phase === "glitch" ? " top-message-text--blur-out" : "")
+              (phase === "glitch"
+                ? " top-message-text--blur-out"
+                : "")
             }
             dangerouslySetInnerHTML={{ __html: displayedText }}
           ></span>
-          {phase === "typing" && <span className="top-message-caret" />}
+          {phase === "typing" && (
+            <span className="top-message-caret" />
+          )}
         </div>
       </div>
 
-      {/* RIGHT: burger + wallet controls */}
+      {/* RIGHT: burger + mute + wallet controls */}
       <div className="top-right-controls">
         {onToggleSidebar && (
           <button
@@ -176,6 +193,35 @@ export default function TopBar({ onToggleSidebar, onOpenRankModal }) {
             ☰
           </button>
         )}
+
+        <button
+          type="button"
+          className={
+            "top-right-audio-toggle" +
+            (isBgMuted ? " top-right-audio-toggle--muted" : "")
+          }
+          onClick={handleAudioToggleClick}
+          aria-label={
+            isBgMuted
+              ? "Unmute background audio"
+              : "Mute background audio"
+          }
+        >
+          <span className="top-right-audio-indicator">
+            <svg
+              className="top-right-audio-icon"
+              viewBox="0 0 2048 2048"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <g fill="#7ae97a">
+                <path d="M1430.7 1228.39c56.217 0 107.118 22.792 143.962 59.635 36.843 36.843 59.634 87.744 59.634 143.962 0 56.217-22.79 107.118-59.634 143.961-36.844 36.845-87.745 59.635-143.962 59.635-56.217 0-107.118-22.79-143.961-59.635-36.844-36.843-59.635-87.744-59.635-143.96 0-56.22 22.79-107.12 59.635-143.963 36.843-36.843 87.744-59.635 143.961-59.635z"/>
+                <path d="m1533.79 259.873-.006-.058 30.878-3.429c34.35-3.817 65.42 21.038 69.234 55.39.544 4.912.382 2.479.382 7.058v1081.33c0 34.613-28.08 62.694-62.694 62.694-34.613 0-62.694-28.08-62.694-62.694V388.684l-685.712 76.19v1115.53c0 34.615-28.08 62.694-62.694 62.694-34.613 0-62.694-28.08-62.694-62.694V408.814c0-32.915 25.44-58.884 57.661-62.464l778.34-86.482z"/>
+                <path d="M618.439 1382.53c56.531 0 107.717 22.918 144.767 59.968 37.05 37.05 59.968 88.236 59.968 144.767 0 56.531-22.918 107.717-59.968 144.767-37.05 37.049-88.236 59.967-144.767 59.967-56.531 0-107.717-22.918-144.767-59.967-37.049-37.05-59.968-88.235-59.968-144.767 0-56.53 22.92-107.717 59.968-144.767 37.05-37.05 88.235-59.968 144.767-59.968z"/>
+              </g>
+            </svg>
+          </span>
+        </button>
 
         <div className="top-right-wallet-group">
           {connected && (

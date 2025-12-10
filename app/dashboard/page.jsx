@@ -1,6 +1,11 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, {
+  useEffect,
+  useState,
+  useRef,
+  useCallback,
+} from "react";
 import { useAccess } from "../../features/access/useAccess";
 
 import OverlayRoot from "./shell/overlays/OverlayRoot";
@@ -12,6 +17,7 @@ import "./styles/dashboard-shell.css";
 import "./styles/modals.css";
 
 const MODAL_ANIM_MS = 500;
+const BG_BASE_VOLUME = 0.35; // main bg volume
 
 // --------------------------
 // Rank badge resolver
@@ -34,12 +40,11 @@ function getRankBadgePath(tier) {
 }
 
 export default function Page() {
-  const { connected, accessTier, address, loadingBalances } = useAccess();
+  const { connected, accessTier, address } = useAccess();
 
   const currentTier = accessTier || null;
   const rankBadgeSrc = currentTier ? getRankBadgePath(currentTier) : null;
 
-  // Short form for modal button (same format as top bar)
   const modalWalletShort =
     address && connected
       ? `${address.slice(0, 4)}...${address.slice(-4)}`
@@ -59,6 +64,120 @@ export default function Page() {
   const [showRankModal, setShowRankModal] = useState(false);
   const [isRankModalExiting, setIsRankModalExiting] = useState(false);
   const rankModalTimerRef = useRef(null);
+
+  // --------------------------
+  // Background terminal audio
+  // --------------------------
+  const bgAudioRef = useRef(null);
+  const bgStartedRef = useRef(false);
+  const fadeIntervalRef = useRef(null);
+  const [isBgMuted, setIsBgMuted] = useState(false);
+
+  // Init audio element once
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    if (!bgAudioRef.current) {
+      const audio = new Audio("/audio/bg-001.mp3");
+      audio.loop = true;
+      audio.volume = isBgMuted ? 0 : BG_BASE_VOLUME;
+      bgAudioRef.current = audio;
+    }
+
+    return () => {
+      const audio = bgAudioRef.current;
+      if (!audio) return;
+      try {
+        audio.pause();
+        audio.currentTime = 0;
+      } catch {
+        // ignore
+      }
+      if (fadeIntervalRef.current) {
+        clearInterval(fadeIntervalRef.current);
+        fadeIntervalRef.current = null;
+      }
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Start bg audio from a user interaction
+  const ensureBgAudio = useCallback(() => {
+    if (bgStartedRef.current) return;
+    const audio = bgAudioRef.current;
+    if (!audio) return;
+
+    bgStartedRef.current = true;
+    audio
+      .play()
+      .catch(() => {
+        // if browser blocks, allow retry on next click
+        bgStartedRef.current = false;
+      });
+  }, []);
+
+  // Smooth fade mute/unmute
+  useEffect(() => {
+    const audio = bgAudioRef.current;
+    if (!audio) return;
+
+    if (fadeIntervalRef.current) {
+      clearInterval(fadeIntervalRef.current);
+      fadeIntervalRef.current = null;
+    }
+
+    const target = isBgMuted ? 0 : BG_BASE_VOLUME;
+    const step = 0.05;
+    const interval = window.setInterval(() => {
+      const a = bgAudioRef.current;
+      if (!a) {
+        clearInterval(interval);
+        fadeIntervalRef.current = null;
+        return;
+      }
+
+      const diff = target - a.volume;
+      if (Math.abs(diff) <= step) {
+        a.volume = target;
+        clearInterval(interval);
+        fadeIntervalRef.current = null;
+        return;
+      }
+
+      a.volume = Math.max(
+        0,
+        Math.min(1, a.volume + Math.sign(diff) * step)
+      );
+    }, 80);
+
+    fadeIntervalRef.current = interval;
+
+    return () => {
+      if (fadeIntervalRef.current) {
+        clearInterval(fadeIntervalRef.current);
+        fadeIntervalRef.current = null;
+      }
+    };
+  }, [isBgMuted]);
+
+  const handleToggleBgMute = useCallback(() => {
+    setIsBgMuted((prev) => !prev);
+  }, []);
+
+  // Stop bg audio when wallet disconnects
+  useEffect(() => {
+    const audio = bgAudioRef.current;
+    if (!audio) return;
+
+    if (!connected) {
+      try {
+        audio.pause();
+        audio.currentTime = 0;
+      } catch {
+        // ignore
+      }
+      bgStartedRef.current = false;
+    }
+  }, [connected]);
 
   // ---------------------------------------
   // Entry overlay (guest or wallet enter)
@@ -122,7 +241,6 @@ export default function Page() {
     };
   }, []);
 
-  // Hide dashboard shell visually whenever the entry overlay is active
   const dashboardShellClass = `dashboard-shell${
     showEntryOverlay ? " dashboard-shell--hidden" : ""
   }`;
@@ -134,6 +252,7 @@ export default function Page() {
         showEntryOverlay={showEntryOverlay}
         handleEnterGuest={handleEnterGuest}
         showRiftFx={showRiftFx}
+        ensureBgAudio={ensureBgAudio}
       />
 
       {/* Dashboard Shell */}
@@ -154,6 +273,8 @@ export default function Page() {
           <TopBar
             onToggleSidebar={handleToggleSidebar}
             onOpenRankModal={handleOpenRankModal}
+            isBgMuted={isBgMuted}
+            onToggleBgMute={handleToggleBgMute}
           />
 
           <header className="dashboard-header">
@@ -214,7 +335,6 @@ export default function Page() {
             </div>
 
             <div className="modal-001-body">
-              {/* RANK BADGE / SKELETON AT TOP */}
               <div className="rank-modal-badge-wrap">
                 {isRankLoaded ? (
                   <img
@@ -233,7 +353,6 @@ export default function Page() {
                 <div className="rank-modal-tier-name-skeleton" />
               )}
 
-              {/* CONNECTED WALLET UNDER RANK */}
               {connected && modalWalletShort && (
                 <div className="rank-modal-wallet">
                   <span

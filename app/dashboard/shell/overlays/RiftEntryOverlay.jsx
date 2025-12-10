@@ -1,28 +1,93 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, {
+  useEffect,
+  useState,
+  useRef,
+  useCallback,
+} from "react";
 import { useAccess } from "../../../../features/access/useAccess";
 
 /* -----------------------------
    Rift Entry Overlay
 ------------------------------*/
-const OVERLAY_ANIM_MS = 2000;
 
-export default function RiftEntryOverlay({ visible, onEnterGuest }) {
+/**
+ * Keep this in sync with the rift entry overlay
+ * animation duration in rift.css (rift-terminal-overlay-enter / -fade).
+ */
+const OVERLAY_ANIM_MS = 900; // ms
+
+export default function RiftEntryOverlay({
+  visible,
+  onEnterGuest,
+  ensureBgAudio, // callback from Page to start bg audio
+}) {
   const [isExiting, setIsExiting] = useState(false);
   const [shouldRender, setShouldRender] = useState(visible);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isEntering, setIsEntering] = useState(false);
   const { connect, connected } = useAccess();
 
-  // Control mount/unmount + entry/exit animation from the `visible` prop
+  // Single shared audio instance for terminal "ping" SFX
+  const audioRef = useRef(null);
+  const hasPlayedEntryRef = useRef(false);
+  const hasPlayedExitRef = useRef(false);
+
+  // Create the audio object once on the client and clean it up on unmount
   useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    if (!audioRef.current) {
+      const audio = new Audio("/audio/terminal-000.mp3");
+      audio.volume = 0.4; // tweak to taste
+      audioRef.current = audio;
+    }
+
+    // Hardening: make sure we don't leave a playing sound behind
+    return () => {
+      const audio = audioRef.current;
+      if (!audio) return;
+      try {
+        audio.pause();
+        audio.currentTime = 0;
+      } catch {
+        // ignore
+      }
+    };
+  }, []);
+
+  const playTerminalSound = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    try {
+      audio.currentTime = 0;
+      audio.play().catch(() => {
+        // ignore autoplay / focus errors – cosmetic only
+      });
+    } catch {
+      // fail silently
+    }
+  }, []);
+
+  // Tie sound + state changes directly to enter/exit transitions
+  useEffect(() => {
+    // Nothing to do if overlay is fully gone and should not render
+    if (!visible && !shouldRender) return;
+
+    // ---- ENTERING ----
     if (visible) {
-      // Show overlay and play entry animation
       setShouldRender(true);
       setIsExiting(false);
       setIsConnecting(false);
       setIsEntering(true);
+
+      if (!hasPlayedEntryRef.current) {
+        playTerminalSound(); // play once at start of enter
+        hasPlayedEntryRef.current = true;
+        hasPlayedExitRef.current = false;
+      }
 
       const timeoutId = setTimeout(() => {
         setIsEntering(false);
@@ -31,9 +96,16 @@ export default function RiftEntryOverlay({ visible, onEnterGuest }) {
       return () => clearTimeout(timeoutId);
     }
 
-    // If it was visible and is now false, play exit animation then unmount
+    // ---- EXITING ----
     if (!visible && shouldRender) {
       setIsExiting(true);
+
+      if (!hasPlayedExitRef.current) {
+        playTerminalSound(); // play once at start of exit
+        hasPlayedExitRef.current = true;
+        hasPlayedEntryRef.current = false;
+      }
+
       const timeoutId = setTimeout(() => {
         setIsExiting(false);
         setShouldRender(false);
@@ -41,32 +113,34 @@ export default function RiftEntryOverlay({ visible, onEnterGuest }) {
 
       return () => clearTimeout(timeoutId);
     }
-  }, [visible, shouldRender]);
+  }, [visible, shouldRender, playTerminalSound]);
 
   // Auto-dismiss overlay when wallet actually becomes connected
   useEffect(() => {
-    if (connected) {
-      // force immediate exit transition
-      if (typeof onEnterGuest === "function") {
-        onEnterGuest();
-      }
+    if (connected && typeof onEnterGuest === "function") {
+      onEnterGuest();
     }
   }, [connected, onEnterGuest]);
 
   if (!shouldRender) return null;
 
+  const overlayClass = `rift-entry-overlay${
+    isExiting ? " rift-entry-overlay--exiting" : ""
+  }${isEntering ? " rift-entry-overlay--entering" : ""}`;
+
   const handleConnectClick = async () => {
+    // Start bg audio from this user interaction
+    if (typeof ensureBgAudio === "function") {
+      ensureBgAudio();
+    }
+
     try {
       setIsConnecting(true);
-      // Use unified AccessProvider connect logic
       await connect();
-
-      // On successful connect, immediately enter the Rift
       if (typeof onEnterGuest === "function") {
         onEnterGuest();
       }
     } catch (err) {
-      // Swallow errors here; visual feedback comes from wallet / top bar
       console.warn("RiftEntryOverlay connect error:", err);
     } finally {
       setIsConnecting(false);
@@ -74,16 +148,17 @@ export default function RiftEntryOverlay({ visible, onEnterGuest }) {
   };
 
   const handleGuestClick = () => {
+    // Start bg audio from this user interaction
+    if (typeof ensureBgAudio === "function") {
+      ensureBgAudio();
+    }
+
     if (typeof onEnterGuest === "function") {
       onEnterGuest();
     }
   };
 
-  const overlayClass = `rift-entry-overlay${
-    isExiting ? " rift-entry-overlay--exiting" : ""
-  }${isEntering ? " rift-entry-overlay--entering" : ""}`;
-
-  // Detect whether Starkey is installed
+  // Detect whether Starkey is installed (for button label)
   const walletInstalled =
     typeof window !== "undefined" &&
     window.starkey &&
@@ -135,11 +210,15 @@ export default function RiftEntryOverlay({ visible, onEnterGuest }) {
           <div className="rift-entry-hud-title">RIFT SUBSTRATE //</div>
           <div className="rift-entry-hud-row">
             <span className="rift-entry-hud-key">Crystals</span>
-            <span className="rift-entry-hud-value">Tri-Moon Rift Crystals</span>
+            <span className="rift-entry-hud-value">
+              Tri-Moon Rift Crystals
+            </span>
           </div>
           <div className="rift-entry-hud-row">
             <span className="rift-entry-hud-key">Chain</span>
-            <span className="rift-entry-hud-value">SUPRA · Quantum-stable data flow</span>
+            <span className="rift-entry-hud-value">
+              SUPRA · Quantum-stable data flow
+            </span>
           </div>
         </div>
       </div>
@@ -187,14 +266,17 @@ export default function RiftEntryOverlay({ visible, onEnterGuest }) {
           </div>
           <div className="rift-entry-status-line">
             <span className="rift-entry-status-prefix">&gt;</span>
-            <span> Awaiting Starkey identity signature bound to $SUPRAWR DNA.</span>
+            <span>
+              {" "}
+              Awaiting Starkey identity signature bound to $SUPRAWR DNA.
+            </span>
           </div>
           <div className="rift-entry-status-line">
             <span className="rift-entry-status-prefix">&gt;</span>
             {isConnecting ? (
               <span>
-                Syncing creds across Primal Rift nodes. Handshake in progress… 
-                <span className="rift-entry-caret" />
+                Syncing creds across Primal Rift nodes. Handshake in
+                progress… <span className="rift-entry-caret" />
               </span>
             ) : (
               <span>
@@ -224,12 +306,6 @@ export default function RiftEntryOverlay({ visible, onEnterGuest }) {
         >
           Enter as guest (no telemetry · no $SUPRAWR signature)
         </button>
-
-        {/*<div className="rift-entry-footnote">
-          Guest mode shows Dino Dash analytics without signing any transactions.
-          Connect later from the top-right wallet button to bind this terminal
-          to your fleet identity.
-        </div>*/}
       </div>
     </div>
   );
