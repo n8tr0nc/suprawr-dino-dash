@@ -3,7 +3,7 @@
 import { Oxanium } from "next/font/google";
 import "./globals.css";
 import React from "react";
-import { AccessProvider } from "../features/access/AccessProvider";
+import { AccessProvider } from "./features/access/AccessProvider";
 
 const oxanium = Oxanium({
   subsets: ["latin"],

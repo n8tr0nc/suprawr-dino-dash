@@ -6,12 +6,12 @@ import React, {
   useRef,
   useCallback,
 } from "react";
-import { useAccess } from "../../features/access/useAccess";
+import { useAccess } from "../features/access/useAccess";
 
 import OverlayRoot from "./shell/overlays/OverlayRoot";
 import Sidebar from "./shell/Sidebar";
 import TopBar from "./shell/TopBar";
-import GasTracker from "../../features/gas-tracker/GasTracker";
+import GasTracker from "../features/gas-tracker/GasTracker";
 
 import "./styles/dashboard-shell.css";
 import "./styles/modals.css";

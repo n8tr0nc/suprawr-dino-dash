@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useAccess } from "../../../features/access/useAccess";
+import { useAccess } from "../../features/access/useAccess";
 
 // ----------------------------------------
 // Homeworld broadcast messages

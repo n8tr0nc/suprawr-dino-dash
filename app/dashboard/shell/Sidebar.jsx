@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
-import { useAccess } from "../../../features/access/useAccess";
+import { useAccess } from "../../features/access/useAccess";
 
 // Compact formatter just for display in the sidebar
 function formatSidebarBalance(raw) {

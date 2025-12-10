@@ -6,7 +6,7 @@ import React, {
   useRef,
   useCallback,
 } from "react";
-import { useAccess } from "../../../../features/access/useAccess";
+import { useAccess } from "../../../features/access/useAccess";
 
 /* -----------------------------
    Rift Entry Overlay
