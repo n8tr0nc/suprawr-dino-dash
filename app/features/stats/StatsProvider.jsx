@@ -125,16 +125,18 @@ export function StatsProvider({ children }) {
         }
         setSupraBalance(supraDisplay);
 
-        // USD price for SUPRA
-        if (
-          priceJson &&
-          priceJson.ok !== false &&
-          typeof priceJson.usd === "number"
-        ) {
-          setSupraUsdPrice(priceJson.usd);
-        } else {
-          setSupraUsdPrice(null);
+        // USD price for SUPRA  **(fixed to match /api/supra-price)**
+        let nextUsdPrice = null;
+        if (priceJson && priceJson.ok !== false) {
+          if (typeof priceJson.priceUsd === "number") {
+            // current API field
+            nextUsdPrice = priceJson.priceUsd;
+          } else if (typeof priceJson.usd === "number") {
+            // fallback, in case you ever change the route
+            nextUsdPrice = priceJson.usd;
+          }
         }
+        setSupraUsdPrice(nextUsdPrice);
 
         // SUPRAWR balance + tier + gate
         let tier = null;

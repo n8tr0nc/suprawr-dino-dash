@@ -11,7 +11,7 @@ import { useStats } from "../stats/useStats";
 
 // RPC base URL
 const RPC_BASE_URL = "https://rpc-mainnet.supra.com";
-const INFO_MODAL_ANIM_MS = 500; // match modal overlay animation duration
+const INFO_MODAL_ANIM_MS = 500;
 
 // -------------------- BALANCE CONVERSION --------------------
 
@@ -61,23 +61,44 @@ function formatApproxSupraDisplay(raw) {
 
   const abs = Math.abs(num);
 
-  // Millions: ~X.XXM
   if (abs >= 1_000_000) {
     const val = num / 1_000_000;
     const rounded = Math.round(val * 100) / 100;
     return `~${rounded.toFixed(2)}M`;
   }
 
-  // Thousands: ~X.XK
   if (abs >= 1_000) {
     const val = num / 1_000;
     const rounded = Math.round(val * 10) / 10;
     return `~${rounded.toFixed(1)}K`;
   }
 
-  // Small values: ~X.XX
   const roundedSmall = Math.round(num * 100) / 100;
   return `~${roundedSmall.toFixed(2)}`;
+}
+
+// -------------------- MATRIX EFFECT HELPERS (NEW) --------------------
+
+function randomDigitsMatching(str) {
+  if (!str) return "";
+
+  let out = "";
+
+  for (let i = 0; i < str.length; i++) {
+    const ch = str[i];
+
+    if (/\d/.test(ch)) {
+      out += Math.floor(Math.random() * 10).toString();
+    } else if (["M", "K", "~", ".", "$"].includes(ch)) {
+      out += ch;
+    } else if (ch === " ") {
+      out += " ";
+    } else {
+      out += Math.floor(Math.random() * 10).toString();
+    }
+  }
+
+  return out;
 }
 
 // -------------------- GAS FORMATTER --------------------
@@ -93,7 +114,7 @@ function formatSupraFromUnits(units) {
   return `${whole.toString()}.${fracStr}`;
 }
 
-// -------------------- HOLDER RANK LOGIC (kept for future use) --------------------
+// -------------------- HOLDER RANK LOGIC --------------------
 
 function computeHolderRankFromDisplay(balanceDisplay) {
   if (!balanceDisplay) return null;
@@ -111,7 +132,6 @@ function computeHolderRankFromDisplay(balanceDisplay) {
   }
 
   if (whole <= 0n) return null;
-
   if (whole >= 10_000_000n) return "Master";
   if (whole >= 1_000_000n) return "Titan";
   if (whole >= 100_000n) return "Guardian";
@@ -119,7 +139,7 @@ function computeHolderRankFromDisplay(balanceDisplay) {
   return "Hatchling";
 }
 
-// -------------------- TIMESTAMP HELPERS (used in full sync) --------------------
+// -------------------- TIMESTAMP HELPERS --------------------
 
 function parseTimestampValue(val) {
   if (val == null) return null;
@@ -173,16 +193,15 @@ function extractTxTimestampMs(tx) {
     if (parsed != null) return parsed;
   }
 
-  const objectsToScan = [header, tx];
-  for (const obj of objectsToScan) {
+  const objs = [header, tx];
+  for (const obj of objs) {
     if (!obj || typeof obj !== "object") continue;
 
     for (const [key, val] of Object.entries(obj)) {
-      const k = key.toLowerCase();
-      if (!k.includes("time")) continue;
-
-      const parsed = parseTimestampValue(val);
-      if (parsed != null) return parsed;
+      if (key.toLowerCase().includes("time")) {
+        const parsed = parseTimestampValue(val);
+        if (parsed != null) return parsed;
+      }
     }
   }
 
@@ -211,9 +230,8 @@ async function fetchLifetimeGasStats(
     params.set("count", String(pageSize));
     params.set("start", startCursor.toString());
 
-    const url = `${RPC_BASE_URL}/rpc/v2/accounts/${address}/coin_transactions?${params.toString()}`;
+    const url = `${RPC_BASE_URL}/rpc/v2/accounts/${address}/coin_transactions?${params}`;
     const res = await fetch(url);
-
     if (!res.ok) throw new Error(`RPC error ${res.status}`);
 
     const data = await res.json();
@@ -241,15 +259,11 @@ async function fetchLifetimeGasStats(
     totalTx += records.length;
 
     if (typeof onPage === "function") {
-      onPage({
-        page: page + 1,
-        totalTx,
-        batchSize: records.length,
-      });
+      onPage({ page: page + 1, totalTx, batchSize: records.length });
     }
 
     const nextCursor = data?.cursor;
-    if (nextCursor === undefined || nextCursor === null) break;
+    if (nextCursor == null) break;
 
     startCursor = BigInt(nextCursor);
     page += 1;
@@ -271,7 +285,7 @@ async function fetchLifetimeGasStats(
 
     let months = 1;
 
-    if (earliestTs != null && latestTs != null && latestTs > earliestTs) {
+    if (earliestTs && latestTs && latestTs > earliestTs) {
       const diffMs = latestTs - earliestTs;
       const approxMonths = diffMs / (30 * 24 * 60 * 60 * 1000);
       months = Math.max(1, Math.round(approxMonths));
@@ -285,9 +299,14 @@ async function fetchLifetimeGasStats(
 
   const latestTxTimestampMs = latestTs ?? null;
 
-  return { totalTx, totalSupra, avgSupra, monthlyAvgSupra, latestTxTimestampMs };
+  return {
+    totalTx,
+    totalSupra,
+    avgSupra,
+    monthlyAvgSupra,
+    latestTxTimestampMs,
+  };
 }
-
 // -------------------- LOCAL CACHE HELPERS --------------------
 
 const GAS_CACHE_PREFIX = "suprawr_gas_cache_v1:";
@@ -332,9 +351,9 @@ function saveGasCache(address, payload) {
   } catch {}
 }
 
-// -------------------- RIFT ENERGY COOLDOWN HELPERS --------------------
+// -------------------- COOLDOWN HELPERS --------------------
 
-const COOLDOWN_MS = 60_000;
+const COOLDOWN_MS = 30_000;
 const RIFT_COOLDOWN_PREFIX = "suprawr_rift_cd_v1:";
 
 function getRiftCooldownKey(address) {
@@ -415,7 +434,41 @@ export default function GasFeeStats({ isSfxMuted }) {
   const drainAudioRef = useRef(null);
   const drainSoundPlayedRef = useRef(false);
 
-  const scanAudioRef = useRef(null); // NEW FOR SCAN SOUND
+  const scanAudioRef = useRef(null);
+
+  // -------------------------------
+  // NEW: MATRIX EFFECT STATE
+  // -------------------------------
+  const [matrixTx, setMatrixTx] = useState("");
+  const [matrixTotal, setMatrixTotal] = useState("");
+  const [matrixAvg, setMatrixAvg] = useState("");
+  const [matrixMonthly, setMatrixMonthly] = useState("");
+
+  // -------------------------------
+  // MATRIX EFFECT INTERVAL (50ms)
+  // -------------------------------
+  useEffect(() => {
+    if (!calculating) {
+      setMatrixTx("");
+      setMatrixTotal("");
+      setMatrixAvg("");
+      setMatrixMonthly("");
+      return;
+    }
+
+    const id = setInterval(() => {
+      setMatrixTx((prev) => randomDigitsMatching(prev || "000000000"));
+      setMatrixTotal((prev) => randomDigitsMatching(prev || "000000000"));
+      setMatrixAvg((prev) => randomDigitsMatching(prev || "000000000"));
+      setMatrixMonthly((prev) => randomDigitsMatching(prev || "000000000"));
+    }, 50);
+
+    return () => clearInterval(id);
+  }, [calculating]);
+
+  // -------------------------------
+  // INFO MODAL OPEN/CLOSE
+  // -------------------------------
 
   const handleOpenInfo = useCallback(() => {
     if (infoTimerRef.current) {
@@ -443,6 +496,10 @@ export default function GasFeeStats({ isSfxMuted }) {
     }, INFO_MODAL_ANIM_MS);
   }, [showInfo]);
 
+  // -------------------------------
+  // RIFT COOLDOWN TRIGGER
+  // -------------------------------
+
   const startRiftCooldown = useCallback((addr) => {
     if (!addr) return;
     const end = Date.now() + COOLDOWN_MS;
@@ -450,7 +507,9 @@ export default function GasFeeStats({ isSfxMuted }) {
     saveRiftCooldown(addr, end);
   }, []);
 
-  // Core calculation + cache writer
+  // -------------------------------
+  // GAS CALC + CACHE
+  // -------------------------------
   const runGasCalculationWithCache = useCallback(
     async (addr, options = {}) => {
       if (!addr) return;
@@ -479,9 +538,7 @@ export default function GasFeeStats({ isSfxMuted }) {
           });
         });
 
-        if (calcRunIdRef.current !== runId) {
-          return;
-        }
+        if (calcRunIdRef.current !== runId) return;
 
         setPagesProcessed((prev) => (prev === 0 ? 1 : prev));
         setProgressPercent(100);
@@ -492,6 +549,7 @@ export default function GasFeeStats({ isSfxMuted }) {
         setAvgSupra(avgSupra);
         setMonthlyAvgSupra(monthlyAvgSupra);
         setHasStats(true);
+
         const syncTime = latestTxTimestampMs || Date.now();
         setLastSyncTime(syncTime);
 
@@ -508,9 +566,7 @@ export default function GasFeeStats({ isSfxMuted }) {
         }
       } catch (e) {
         console.error(e);
-        setError(
-          "Unable to fetch full coin transaction history from Supra RPC."
-        );
+        setError("Unable to fetch full coin transaction history from Supra RPC.");
         setProgressPercent(0);
         setPagesProcessed(0);
       } finally {
@@ -522,7 +578,10 @@ export default function GasFeeStats({ isSfxMuted }) {
     [startRiftCooldown]
   );
 
-  // Load existing cache + maybe auto-refresh if stale
+  // -------------------------------
+  // AUTO-LOAD CACHE + DEFAULT SYNC
+  // -------------------------------
+
   const runAccessAndMaybeCalc = useCallback(
     async (addr) => {
       if (!addr) return;
@@ -548,6 +607,7 @@ export default function GasFeeStats({ isSfxMuted }) {
       setLastSyncTime(
         cache.lastSyncTime != null ? cache.lastSyncTime : updatedAtMs || null
       );
+
       setPagesProcessed(0);
       setProgressPercent(0);
       setHasStats(true);
@@ -555,7 +615,10 @@ export default function GasFeeStats({ isSfxMuted }) {
     [hasAccess, runGasCalculationWithCache]
   );
 
-  // Auto-run when wallet + access are ready
+  // -------------------------------
+  // REACT TO CONNECTION + ACCESS
+  // -------------------------------
+
   useEffect(() => {
     if (!connected || !address) {
       setTxCount(0);
@@ -587,14 +650,12 @@ export default function GasFeeStats({ isSfxMuted }) {
     if (hasAccess === false) return;
 
     runAccessAndMaybeCalc(address);
-  }, [
-    connected,
-    address,
-    hasAccess,
-    runAccessAndMaybeCalc
-  ]);
+  }, [connected, address, hasAccess, runAccessAndMaybeCalc]);
 
-  // Load Rift cooldown when address changes
+  // -------------------------------
+  // LOAD RIFT COOLDOWN ON ADDRESS CHANGE
+  // -------------------------------
+
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -616,7 +677,10 @@ export default function GasFeeStats({ isSfxMuted }) {
     }
   }, [address]);
 
-  // Drive cooldown timer
+  // -------------------------------
+  // DRIVE COOLDOWN TIMER
+  // -------------------------------
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!cooldownEndMs) return;
@@ -627,21 +691,20 @@ export default function GasFeeStats({ isSfxMuted }) {
       setNowMs(Date.now());
     }, 500);
 
-    return () => {
-      window.clearInterval(id);
-    };
+    return () => window.clearInterval(id);
   }, [cooldownEndMs]);
 
-  // Animate Rift Energy charge-up
+  // -------------------------------
+  // ENERGY CHARGE ANIMATION
+  // -------------------------------
+
   useEffect(() => {
     if (!connected || !address) {
       setEnergyAnim(0);
       return;
     }
 
-    if (cooldownEndMs && cooldownEndMs > Date.now()) {
-      return;
-    }
+    if (cooldownEndMs && cooldownEndMs > Date.now()) return;
 
     let rafId;
     const duration = 400;
@@ -661,44 +724,41 @@ export default function GasFeeStats({ isSfxMuted }) {
 
     rafId = requestAnimationFrame(step);
 
-    return () => {
-      if (rafId) cancelAnimationFrame(rafId);
-    };
-  }, [
-    connected,
-    address,
-    cooldownEndMs
-  ]);
+    return () => rafId && cancelAnimationFrame(rafId);
+  }, [connected, address, cooldownEndMs]);
 
-    // -------------------------------
-  // INIT DRAIN SOUND (once)
   // -------------------------------
+  // INIT DRAIN SOUND
+  // -------------------------------
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (drainAudioRef.current) return;
 
-    const audio = new Audio("/audio/drain-003.mp3");
+    const audio = new Audio("/audio/drain-005.mp3");
     audio.loop = false;
     audio.volume = 0.4;
     drainAudioRef.current = audio;
   }, []);
 
   // -------------------------------
-  // INIT SCAN SOUND (once)
+  // INIT SCAN SOUND
   // -------------------------------
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (scanAudioRef.current) return;
 
     const audio = new Audio("/audio/scan-010.mp3");
-    audio.loop = true;          // continuous loop
-    audio.volume = 0.2;        // slightly softer than drain for UX
+    audio.loop = true;
+    audio.volume = 0.2;
     scanAudioRef.current = audio;
   }, []);
 
   // -------------------------------
-  // DRAIN ANIMATION 1 → 0 over 3 sec
+  // DRAIN ANIMATION (1 → 0 over 3s)
   // -------------------------------
+
   useEffect(() => {
     if (!isDraining) return;
 
@@ -727,8 +787,9 @@ export default function GasFeeStats({ isSfxMuted }) {
   }, [isDraining]);
 
   // -------------------------------
-  // DRAIN SOUND (respect SFX mute)
+  // DRAIN SOUND (SFX-mute aware)
   // -------------------------------
+
   useEffect(() => {
     if (!isDraining) {
       drainSoundPlayedRef.current = false;
@@ -738,7 +799,6 @@ export default function GasFeeStats({ isSfxMuted }) {
     const audio = drainAudioRef.current;
     if (!audio) return;
 
-    // If SFX muted → stop
     if (isSfxMuted) {
       try {
         audio.pause();
@@ -748,7 +808,6 @@ export default function GasFeeStats({ isSfxMuted }) {
       return;
     }
 
-    // Only play once per drain
     if (drainSoundPlayedRef.current) return;
 
     try {
@@ -760,18 +819,15 @@ export default function GasFeeStats({ isSfxMuted }) {
   }, [isDraining, isSfxMuted]);
 
   // -------------------------------
-  // SCAN LOOP SOUND (plays while calculating)
+  // SCAN SOUND (loop while calculating)
   // -------------------------------
+
   useEffect(() => {
     const audio = scanAudioRef.current;
     if (!audio) return;
 
-    // Conditions where scan sound MUST NOT play
     const shouldStop =
-      !calculating ||
-      !connected ||
-      !address ||
-      isSfxMuted;
+      !calculating || !connected || !address || isSfxMuted;
 
     if (shouldStop) {
       try {
@@ -781,13 +837,11 @@ export default function GasFeeStats({ isSfxMuted }) {
       return;
     }
 
-    // PLAY scan loop when calculating begins
     try {
       audio.currentTime = 0;
       audio.play().catch(() => {});
     } catch {}
 
-    // Cleanup on effect exit
     return () => {
       try {
         audio.pause();
@@ -797,8 +851,9 @@ export default function GasFeeStats({ isSfxMuted }) {
   }, [calculating, connected, address, isSfxMuted]);
 
   // -------------------------------
-  // CLEANUP ON UNMOUNT (drain + scan)
+  // CLEANUP ON UNMOUNT
   // -------------------------------
+
   useEffect(() => {
     return () => {
       if (infoTimerRef.current) {
@@ -823,13 +878,13 @@ export default function GasFeeStats({ isSfxMuted }) {
     };
   }, []);
 
-    // ------------------------------------
-  // HANDLE SYNC ACTION (Connect or Sync)
-  // ------------------------------------
+  // -------------------------------
+  // HANDLE MAIN BUTTON (Connect / Sync)
+  // -------------------------------
+
   const handleAction = useCallback(async () => {
     setError("");
 
-    // Not connected → prompt wallet
     if (!connected) {
       try {
         setConnecting(true);
@@ -848,9 +903,7 @@ export default function GasFeeStats({ isSfxMuted }) {
       return;
     }
 
-    if (hasAccess === false) {
-      return;
-    }
+    if (hasAccess === false) return;
 
     const isManualRecalc = !!hasStats;
 
@@ -861,18 +914,11 @@ export default function GasFeeStats({ isSfxMuted }) {
     }
 
     await runGasCalculationWithCache(address, { isManualRecalc });
-  }, [
-    connected,
-    address,
-    hasAccess,
-    hasStats,
-    connect,
-    runGasCalculationWithCache
-  ]);
+  }, [connected, address, hasAccess, hasStats, connect, runGasCalculationWithCache]);
+  // -------------------------------
+  // RIFT COOLDOWN DERIVED INFO
+  // -------------------------------
 
-  // ------------------------------------
-  // RIFT COOLDOWN DERIVED VALUES
-  // ------------------------------------
   let cooldownActive = false;
   let cooldownRemainingMs = 0;
   let cooldownProgress = 0;
@@ -894,18 +940,20 @@ export default function GasFeeStats({ isSfxMuted }) {
     ? Math.ceil(cooldownRemainingMs / 1000)
     : 0;
 
-  // ------------------------------------
-  // Detect wallet installation (SSR-safe)
-  // ------------------------------------
+  // -------------------------------
+  // DETECT WALLET INSTALLED
+  // -------------------------------
+
   const walletInstalled =
     mounted &&
     typeof window !== "undefined" &&
     "starkey" in window &&
     !!window.starkey?.supra;
 
-  // ------------------------------------
-  // BUTTON LABEL SELECTION
-  // ------------------------------------
+  // -------------------------------
+  // BUTTON LABEL
+  // -------------------------------
+
   const buttonLabel = !connected
     ? connecting
       ? "Connecting…"
@@ -929,9 +977,10 @@ export default function GasFeeStats({ isSfxMuted }) {
     (connected && hasAccess === false) ||
     (connected && hasAccess && hasStats && cooldownActive);
 
-  // ------------------------------------
-  // USD VALUE DISPLAYS
-  // ------------------------------------
+  // -------------------------------
+  // USD VALUES
+  // -------------------------------
+
   const totalSupraUsdDisplay =
     totalSupra && supraUsdPrice != null
       ? formatUsdApproxFromSupraString(totalSupra, supraUsdPrice)
@@ -947,9 +996,10 @@ export default function GasFeeStats({ isSfxMuted }) {
       ? formatUsdApproxFromSupraString(monthlyAvgSupra, supraUsdPrice)
       : null;
 
-  // ------------------------------------
-  // PROGRESS BAR DERIVED DISPLAY
-  // ------------------------------------
+  // -------------------------------
+  // PROGRESS BAR DISPLAY
+  // -------------------------------
+
   let displayProgressPercent = 0;
   let progressLabelText = "No sync run yet.";
 
@@ -967,9 +1017,10 @@ export default function GasFeeStats({ isSfxMuted }) {
     progressLabelText = "No sync run yet";
   }
 
-  // ------------------------------------
-  // RIFT ENERGY BAR DISPLAY
-  // ------------------------------------
+  // -------------------------------
+  // ENERGY BAR
+  // -------------------------------
+
   let energyProgress = 0;
 
   if (!connected || !address) {
@@ -982,60 +1033,6 @@ export default function GasFeeStats({ isSfxMuted }) {
     energyProgress = cooldownProgress;
   } else {
     energyProgress = Math.min(1, Math.max(0, energyAnim));
-  }
-
-  let riftStatusLabel;
-  if (!connected || !address) {
-    riftStatusLabel = "Connect to charge";
-  } else if (isDraining) {
-    riftStatusLabel = drainValue <= 0.01 ? "Empty" : "Draining…";
-  } else if (manualSyncActive && calculating) {
-    riftStatusLabel = "Empty";
-  } else if (cooldownActive) {
-    riftStatusLabel = `Recharging… ${cooldownRemainingSeconds}s`;
-  } else if (hasAccess && hasStats) {
-    riftStatusLabel = "Full";
-  } else if (hasAccess) {
-    riftStatusLabel = "Ready to run first sync";
-  } else {
-    riftStatusLabel = "Full";
-  }
-
-  // ------------------------------------
-  // FORMATTED DISPLAYS
-  // ------------------------------------
-  const formattedTxCount =
-    typeof txCount === "number" && txCount.toLocaleString
-      ? txCount.toLocaleString()
-      : txCount;
-
-  let totalSupraDisplay = "No data";
-  if (hasStats && totalSupra) {
-    const approxTotalSupra = formatApproxSupraDisplay(totalSupra);
-    totalSupraDisplay = `${approxTotalSupra} $SUPRA`;
-    if (totalSupraUsdDisplay) {
-      totalSupraDisplay += ` (~$${totalSupraUsdDisplay})`;
-    }
-  }
-
-  let avgSupraDisplay = "No data";
-  if (hasStats && avgSupra) {
-    const approxAvgSupra = formatApproxSupraDisplay(avgSupra);
-    avgSupraDisplay = `${approxAvgSupra} $SUPRA`;
-    if (avgSupraUsdDisplay) {
-      avgSupraDisplay += ` (~$${avgSupraUsdDisplay})`;
-    }
-  }
-
-  let monthlySupraDisplay = "No data";
-  if (hasStats && monthlyAvgSupra) {
-    const approxMonthlySupra = formatApproxSupraDisplay(
-      monthlyAvgSupra
-    );
-    monthlySupraDisplay = `${approxMonthlySupra} $SUPRA`;
-    if (monthlyAvgUsdDisplay) {
-      monthlySupraDisplay += ` (~$${monthlyAvgUsdDisplay})`;
-    }
   }
 
   const isEnergyFull =
@@ -1079,7 +1076,74 @@ export default function GasFeeStats({ isSfxMuted }) {
       ? "Access denied: this wallet must hold at least 1,000 $SUPRAWR to use this tool."
       : "";
 
-        return (
+  // -------------------------------
+  // FORMATTED DISPLAYS
+  // -------------------------------
+
+  const formattedTxCount =
+    typeof txCount === "number" && txCount.toLocaleString
+      ? txCount.toLocaleString()
+      : txCount;
+
+  let totalSupraDisplay = "No data";
+  if (hasStats && totalSupra) {
+    const approxTotalSupra = formatApproxSupraDisplay(totalSupra);
+    totalSupraDisplay = `${approxTotalSupra} $SUPRA`;
+    if (totalSupraUsdDisplay) {
+      totalSupraDisplay += ` (~$${totalSupraUsdDisplay})`;
+    }
+  }
+
+  let avgSupraDisplay = "No data";
+  if (hasStats && avgSupra) {
+    const approxAvgSupra = formatApproxSupraDisplay(avgSupra);
+    avgSupraDisplay = `${approxAvgSupra} $SUPRA`;
+    if (avgSupraUsdDisplay) {
+      avgSupraDisplay += ` (~$${avgSupraUsdDisplay})`;
+    }
+  }
+
+  let monthlySupraDisplay = "No data";
+  if (hasStats && monthlyAvgSupra) {
+    const approxMonthlySupra = formatApproxSupraDisplay(monthlyAvgSupra);
+    monthlySupraDisplay = `${approxMonthlySupra} $SUPRA`;
+    if (monthlyAvgUsdDisplay) {
+      monthlySupraDisplay += ` (~$${monthlyAvgUsdDisplay})`;
+    }
+  }
+
+  // -------------------------------
+// RIFT ENERGY STATUS LABEL (REAL + MATRIX VERSION)
+// -------------------------------
+
+// Determine the real label
+let riftStatusLabel = "";
+if (!connected || !address) {
+  riftStatusLabel = "Connect to charge";
+} else if (isDraining) {
+  riftStatusLabel = drainValue <= 0.01 ? "Empty" : "Draining…";
+} else if (manualSyncActive && calculating) {
+  riftStatusLabel = "Empty";
+} else if (cooldownActive) {
+  riftStatusLabel = `Recharging… ${cooldownRemainingSeconds}s`;
+} else if (hasAccess && hasStats) {
+  riftStatusLabel = "Full";
+} else if (hasAccess) {
+  riftStatusLabel = "Ready";
+} else {
+  riftStatusLabel = "Full";
+}
+
+// Matrix effect wrapper
+const riftStatusLabelText = calculating
+  ? randomDigitsMatching(riftStatusLabel)
+  : riftStatusLabel;
+
+  // -------------------------------
+  // RETURN
+  // -------------------------------
+
+  return (
     <>
       <section className="gas-card">
         <div className="dashboard-panel-header">
@@ -1126,53 +1190,29 @@ export default function GasFeeStats({ isSfxMuted }) {
               <div className="modal-001-body gas-info-body">
                 <p>
                   This tool tracks gas spent on{" "}
-                  <strong>SUPRA coin transactions only</strong> for your
-                  connected wallet, using Supra’s public RPC.
+                  <strong>SUPRA coin transactions only</strong> for your wallet.
                 </p>
 
                 <p>
-                  It works through the{" "}
-                  <code>coin_transactions</code> endpoint, which is the
-                  only RPC endpoint that includes gas usage details.{" "}
-                  <strong>
-                    The only place full gas-fee data exists is inside the
-                    complete transaction detail, which Supra RPC currently
-                    does not expose through any public “fetch by hash”
-                    endpoint.
-                  </strong>{" "}
-                  Because of this,{" "}
-                  <strong>
-                    contract calls, burns, swaps, NFTs, and other
-                    non-coin actions cannot be included.
-                  </strong>
+                  It uses the <code>coin_transactions</code> RPC, the only RPC
+                  endpoint that exposes gas usage for Supra coin transfers.
                 </p>
 
                 <p>
-                  <strong>
-                    There is currently no way to compute a wallet’s total
-                    gas fees across ALL transaction types using only the
-                    public Supra RPC.
-                  </strong>
+                  Contract calls, swaps, NFTs, DEX txs, etc. are not included
+                  because Supra RPC does not expose their gas usage publicly.
                 </p>
 
                 <p>
-                  To improve performance, the tool{" "}
-                  <strong>
-                    automatically syncs and calculates when you connect
-                    your wallet
-                  </strong>{" "}
-                  then <strong>caches results for 24 hours</strong>.
-                  Reconnecting within that window shows cached values
-                  instantly. After 24 hours, a fresh sync runs
-                  automatically. You can also manually force a new sync
-                  using <strong>Sync Rift Data</strong>.
+                  Results cache for 24 hours. Reconnecting inside that window shows cached
+                  results instantly.
                 </p>
               </div>
             </div>
           </div>
         )}
 
-        {/* Connected Wallet Field */}
+        {/* Connected Wallet */}
         <div className="field-block">
           <label htmlFor="wallet" className="field-label">
             Connected Supra Wallet
@@ -1184,11 +1224,10 @@ export default function GasFeeStats({ isSfxMuted }) {
             value={address || ""}
             readOnly
             disabled
-            placeholder="Connect StarKey to autofill your address"
           />
         </div>
 
-        {/* MAIN BUTTON */}
+        {/* Action Button */}
         <button
           className="primary-button"
           onClick={handleAction}
@@ -1198,11 +1237,11 @@ export default function GasFeeStats({ isSfxMuted }) {
           {buttonLabel}
         </button>
 
-        {/* Rift Energy Recharge bar */}
+        {/* Rift Energy */}
         <div className="rift-energy-wrapper">
           <div className="rift-energy-header">
             <span className="rift-energy-title">Rift Energy</span>
-            <span className="rift-energy-status">{riftStatusLabel}</span>
+            <span className="rift-energy-status">{riftStatusLabelText}</span>
           </div>
 
           <div className={riftBarClassName}>
@@ -1213,7 +1252,7 @@ export default function GasFeeStats({ isSfxMuted }) {
           </div>
         </div>
 
-        {/* Rift Sync progress bar */}
+        {/* Progress Bar */}
         <div className="progress-wrapper">
           <div className="progress-header">
             <span className="progress-title">Rift Sync</span>
@@ -1232,35 +1271,53 @@ export default function GasFeeStats({ isSfxMuted }) {
         {accessError && <div className="alert error">{accessError}</div>}
         {error && <div className="alert error">{error}</div>}
 
-        {/* Results */}
+        {/* RESULTS WITH MATRIX EFFECT */}
         {connected && hasAccess && !error && (
           <div className="results">
+            {/* TX COUNT */}
             <div className="result-row">
               <span className="result-label">$SUPRA txs synced</span>
               <span className="result-value">
-                {hasStats ? formattedTxCount : "No data"}
+                {calculating
+                  ? matrixTx || "00000"
+                  : formattedTxCount}
               </span>
             </div>
 
+            {/* TOTAL GAS */}
             <div className="result-row">
               <span className="result-label">
                 Estimated gas spent on $SUPRA txs
               </span>
-              <span className="result-value">{totalSupraDisplay}</span>
+              <span className="result-value">
+                {calculating
+                  ? matrixTotal || "~0.00M"
+                  : totalSupraDisplay}
+              </span>
             </div>
 
+            {/* AVG GAS */}
             <div className="result-row">
               <span className="result-label">
                 Average estimated gas per $SUPRA tx
               </span>
-              <span className="result-value">{avgSupraDisplay}</span>
+              <span className="result-value">
+                {calculating
+                  ? matrixAvg || "~0.00"
+                  : avgSupraDisplay}
+              </span>
             </div>
 
+            {/* MONTHLY GAS */}
             <div className="result-row">
               <span className="result-label">
                 Estimated gas spent per month
               </span>
-              <span className="result-value">{monthlySupraDisplay}</span>
+              <span className="result-value">
+                {calculating
+                  ? matrixMonthly || "~0.00K"
+                  : monthlySupraDisplay}
+              </span>
             </div>
           </div>
         )}

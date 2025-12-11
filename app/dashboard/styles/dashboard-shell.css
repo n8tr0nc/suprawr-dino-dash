@@ -806,7 +806,7 @@ button.sidebar-rank:hover {
   /* ensures perfect, gapless blending */
   filter: drop-shadow(-8px 0 8px rgba(0, 255, 140, 0.55));
 
-  animation: rift-orb 1.4s linear infinite;
+  animation: rift-orb 1.3s linear infinite;
 }
 
 /* constant speed, smooth fade in/out */
@@ -963,7 +963,7 @@ button.sidebar-rank:hover {
   /* orbit rotation */
   transform: translate(-50%, -50%) rotate(0deg) translate(0, -16px);
   transform-origin: center center;
-  animation: rank-orbit 1.4s linear infinite;
+  animation: rank-orbit 1.3s linear infinite;
 }
 
 @keyframes rank-orbit {
