@@ -423,7 +423,7 @@
 
 /* Top-right connect/disconnect button */
 .top-right-wallet-button {
-  padding: 0.64rem 1.3rem;
+  padding: 0.64rem 0.8rem;
   background: transparent;
   border-radius: 2px;
   font-family: var(--font-oxanium), system-ui, -apple-system, BlinkMacSystemFont,
@@ -461,6 +461,14 @@
   align-items: center;
   gap: 10px;
   flex-shrink: 0; /* <-- new: don’t let buttons compress or get pushed out */
+}
+
+.top-right-audio-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  margin-right: auto;
 }
 
 .top-right-wallet-address {
@@ -1105,7 +1113,7 @@ button.sidebar-rank:hover {
 
 /* Address button in the top bar */
 .top-right-wallet-address-btn {
-  padding: 0.64rem 1.3rem;
+  padding: 0.64rem 0.8rem;
   border: 1px solid #b39628;
   border-radius: 2px;
   font-family: var(--font-oxanium), system-ui, -apple-system, BlinkMacSystemFont,

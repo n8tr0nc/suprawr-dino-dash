@@ -78,7 +78,7 @@ export default function Sidebar({
     if (!refreshAudioRef.current) {
       const audio = new Audio("/audio/refresh-002-echo.mp3");
       audio.loop = true;
-      audio.volume = 0.4;
+      audio.volume = 0.6;
       refreshAudioRef.current = audio;
     }
 

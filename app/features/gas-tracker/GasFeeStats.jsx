@@ -291,7 +291,7 @@ async function fetchLifetimeGasStats(
 // -------------------- LOCAL CACHE HELPERS --------------------
 
 const GAS_CACHE_PREFIX = "suprawr_gas_cache_v1:";
-const MAX_CACHE_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours TTL (currently not enforced, but kept for future use)
+const MAX_CACHE_AGE_MS = 24 * 60 * 60 * 1000;
 
 function getGasCacheKey(address) {
   if (!address) return null;
@@ -329,9 +329,7 @@ function saveGasCache(address, payload) {
       ...payload,
     };
     window.localStorage.setItem(key, JSON.stringify(toStore));
-  } catch {
-    // ignore storage failures
-  }
+  } catch {}
 }
 
 // -------------------- RIFT ENERGY COOLDOWN HELPERS --------------------
@@ -367,20 +365,16 @@ function saveRiftCooldown(address, endMs) {
 
   try {
     window.localStorage.setItem(key, String(endMs));
-  } catch {
-    // ignore storage failures
-  }
+  } catch {}
 }
 
 // -------------------- MAIN COMPONENT --------------------
 
 export default function GasFeeStats({ isSfxMuted }) {
-  // NEW: split wallet + stats
   const { connected, address, connect } = useWallet();
   const { hasAccess, supraUsdPrice, loadingAccess, loadingBalances } =
     useStats();
 
-  // Track mount to keep walletInstalled SSR-safe
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -404,29 +398,24 @@ export default function GasFeeStats({ isSfxMuted }) {
   const infoTimerRef = useRef(null);
   const [lastSyncTime, setLastSyncTime] = useState(null);
 
-  // Rift Energy animation state (0 → 1) for charge-up
   const [energyAnim, setEnergyAnim] = useState(0);
 
-  // Rift Energy drain state (1 → 0) when sync starts
   const [isDraining, setIsDraining] = useState(false);
   const [drainValue, setDrainValue] = useState(1);
 
-  // Track when a manual recalc is in-flight, so we can keep bar empty
   const [manualSyncActive, setManualSyncActive] = useState(false);
 
-  // Rift Energy cooldown state
   const [cooldownEndMs, setCooldownEndMs] = useState(null);
   const [nowMs, setNowMs] = useState(Date.now());
 
-  // Have we successfully loaded stats (from cache or fresh sync)?
   const [hasStats, setHasStats] = useState(false);
 
-  // run id to cancel in-flight calculations on wallet change
   const calcRunIdRef = useRef(0);
 
-  // Drain sound refs
   const drainAudioRef = useRef(null);
   const drainSoundPlayedRef = useRef(false);
+
+  const scanAudioRef = useRef(null); // NEW FOR SCAN SOUND
 
   const handleOpenInfo = useCallback(() => {
     if (infoTimerRef.current) {
@@ -527,7 +516,7 @@ export default function GasFeeStats({ isSfxMuted }) {
       } finally {
         setCalculating(false);
         setIsDraining(false);
-        setManualSyncActive(false); // allow cooldown to take over
+        setManualSyncActive(false);
       }
     },
     [startRiftCooldown]
@@ -539,19 +528,16 @@ export default function GasFeeStats({ isSfxMuted }) {
       if (!addr) return;
       setError("");
 
-      // Wait for gate result; if no access, do nothing
       if (hasAccess === false) return;
       if (hasAccess == null) return;
 
       const cache = loadGasCache(addr);
 
-      // No cache yet → first-time sync runs automatically
       if (!cache) {
         await runGasCalculationWithCache(addr, { isManualRecalc: false });
         return;
       }
 
-      // Cache exists → always trust it and load instantly
       const updatedAtMs =
         typeof cache.updatedAtMs === "number" ? cache.updatedAtMs : 0;
 
@@ -572,7 +558,6 @@ export default function GasFeeStats({ isSfxMuted }) {
   // Auto-run when wallet + access are ready
   useEffect(() => {
     if (!connected || !address) {
-      // Reset when disconnected
       setTxCount(0);
       setTotalSupra(null);
       setAvgSupra(null);
@@ -586,27 +571,28 @@ export default function GasFeeStats({ isSfxMuted }) {
       setManualSyncActive(false);
       setCooldownEndMs(null);
 
-      // HARD-STOP any drain audio on disconnect
       const a = drainAudioRef.current;
       if (a) {
         try {
           a.pause();
           a.currentTime = 0;
-        } catch {
-          // ignore
-        }
+        } catch {}
       }
       drainSoundPlayedRef.current = false;
 
       return;
     }
 
-    // Wait until access tier is known
     if (hasAccess === null) return;
     if (hasAccess === false) return;
 
     runAccessAndMaybeCalc(address);
-  }, [connected, address, hasAccess, runAccessAndMaybeCalc]);
+  }, [
+    connected,
+    address,
+    hasAccess,
+    runAccessAndMaybeCalc
+  ]);
 
   // Load Rift cooldown when address changes
   useEffect(() => {
@@ -630,7 +616,7 @@ export default function GasFeeStats({ isSfxMuted }) {
     }
   }, [address]);
 
-  // Drive cooldown timer (Rift Energy bar)
+  // Drive cooldown timer
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!cooldownEndMs) return;
@@ -646,20 +632,19 @@ export default function GasFeeStats({ isSfxMuted }) {
     };
   }, [cooldownEndMs]);
 
-  // Animate Rift Energy when wallet is connected, has an address, and is NOT cooling down
+  // Animate Rift Energy charge-up
   useEffect(() => {
     if (!connected || !address) {
       setEnergyAnim(0);
       return;
     }
 
-    // If cooldown is active → do NOT animate or reset, just hold
     if (cooldownEndMs && cooldownEndMs > Date.now()) {
       return;
     }
 
     let rafId;
-    const duration = 400; // ms, quick charge-up
+    const duration = 400;
 
     setEnergyAnim(0);
 
@@ -667,7 +652,7 @@ export default function GasFeeStats({ isSfxMuted }) {
 
     const step = (now) => {
       const elapsed = now - start;
-      const t = Math.min(1, elapsed / duration); // 0 → 1
+      const t = Math.min(1, elapsed / duration);
       setEnergyAnim(t);
       if (t < 1) {
         rafId = requestAnimationFrame(step);
@@ -679,9 +664,15 @@ export default function GasFeeStats({ isSfxMuted }) {
     return () => {
       if (rafId) cancelAnimationFrame(rafId);
     };
-  }, [connected, address, cooldownEndMs]);
+  }, [
+    connected,
+    address,
+    cooldownEndMs
+  ]);
 
-    // Init drain sound audio once on client
+    // -------------------------------
+  // INIT DRAIN SOUND (once)
+  // -------------------------------
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (drainAudioRef.current) return;
@@ -692,21 +683,37 @@ export default function GasFeeStats({ isSfxMuted }) {
     drainAudioRef.current = audio;
   }, []);
 
-  // Drain animation: 1 → 0 over ~3s when manual sync starts
+  // -------------------------------
+  // INIT SCAN SOUND (once)
+  // -------------------------------
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (scanAudioRef.current) return;
+
+    const audio = new Audio("/audio/scan-010.mp3");
+    audio.loop = true;          // continuous loop
+    audio.volume = 0.2;        // slightly softer than drain for UX
+    scanAudioRef.current = audio;
+  }, []);
+
+  // -------------------------------
+  // DRAIN ANIMATION 1 → 0 over 3 sec
+  // -------------------------------
   useEffect(() => {
     if (!isDraining) return;
 
     let rafId;
-    const duration = 3000; // 3 seconds
+    const duration = 3000;
 
     setDrainValue(1);
     const start = performance.now();
 
     const step = (now) => {
       const elapsed = now - start;
-      const t = Math.min(1, elapsed / duration); // 0 → 1
-      const v = 1 - t; // 1 → 0
+      const t = Math.min(1, elapsed / duration);
+      const v = 1 - t;
       setDrainValue(v);
+
       if (t < 1) {
         rafId = requestAnimationFrame(step);
       } else {
@@ -716,15 +723,13 @@ export default function GasFeeStats({ isSfxMuted }) {
     };
 
     rafId = requestAnimationFrame(step);
-
-    return () => {
-      if (rafId) cancelAnimationFrame(rafId);
-    };
+    return () => rafId && cancelAnimationFrame(rafId);
   }, [isDraining]);
 
-  // Play drain sound once when drain actually starts, respect SFX mute
+  // -------------------------------
+  // DRAIN SOUND (respect SFX mute)
+  // -------------------------------
   useEffect(() => {
-    // If not draining, reset the flag and exit
     if (!isDraining) {
       drainSoundPlayedRef.current = false;
       return;
@@ -733,53 +738,98 @@ export default function GasFeeStats({ isSfxMuted }) {
     const audio = drainAudioRef.current;
     if (!audio) return;
 
-    // If SFX is muted, stop any sound and prevent playback
+    // If SFX muted → stop
     if (isSfxMuted) {
       try {
         audio.pause();
         audio.currentTime = 0;
-      } catch {
-        // ignore
-      }
+      } catch {}
       drainSoundPlayedRef.current = false;
       return;
     }
 
-    // Only play once when drain begins
+    // Only play once per drain
     if (drainSoundPlayedRef.current) return;
 
     try {
       audio.currentTime = 0;
       audio.play().catch(() => {});
-    } catch {
-      // cosmetic only
-    }
+    } catch {}
 
     drainSoundPlayedRef.current = true;
   }, [isDraining, isSfxMuted]);
 
-  // Clean up info modal timer + drain audio on unmount
+  // -------------------------------
+  // SCAN LOOP SOUND (plays while calculating)
+  // -------------------------------
+  useEffect(() => {
+    const audio = scanAudioRef.current;
+    if (!audio) return;
+
+    // Conditions where scan sound MUST NOT play
+    const shouldStop =
+      !calculating ||
+      !connected ||
+      !address ||
+      isSfxMuted;
+
+    if (shouldStop) {
+      try {
+        audio.pause();
+        audio.currentTime = 0;
+      } catch {}
+      return;
+    }
+
+    // PLAY scan loop when calculating begins
+    try {
+      audio.currentTime = 0;
+      audio.play().catch(() => {});
+    } catch {}
+
+    // Cleanup on effect exit
+    return () => {
+      try {
+        audio.pause();
+        audio.currentTime = 0;
+      } catch {}
+    };
+  }, [calculating, connected, address, isSfxMuted]);
+
+  // -------------------------------
+  // CLEANUP ON UNMOUNT (drain + scan)
+  // -------------------------------
   useEffect(() => {
     return () => {
       if (infoTimerRef.current) {
         clearTimeout(infoTimerRef.current);
       }
-      const a = drainAudioRef.current;
-      if (a) {
+
+      const drainA = drainAudioRef.current;
+      if (drainA) {
         try {
-          a.pause();
-          a.currentTime = 0;
-        } catch {
-          // ignore
-        }
+          drainA.pause();
+          drainA.currentTime = 0;
+        } catch {}
+      }
+
+      const scanA = scanAudioRef.current;
+      if (scanA) {
+        try {
+          scanA.pause();
+          scanA.currentTime = 0;
+        } catch {}
       }
     };
   }, []);
 
+    // ------------------------------------
+  // HANDLE SYNC ACTION (Connect or Sync)
+  // ------------------------------------
   const handleAction = useCallback(async () => {
     setError("");
 
-    // Not connected → use wallet connect
+    // Not connected → prompt wallet
     if (!connected) {
       try {
         setConnecting(true);
@@ -811,9 +861,18 @@ export default function GasFeeStats({ isSfxMuted }) {
     }
 
     await runGasCalculationWithCache(address, { isManualRecalc });
-  }, [connected, address, hasAccess, hasStats, connect, runGasCalculationWithCache]);
+  }, [
+    connected,
+    address,
+    hasAccess,
+    hasStats,
+    connect,
+    runGasCalculationWithCache
+  ]);
 
-  // --- Rift cooldown derived values ---
+  // ------------------------------------
+  // RIFT COOLDOWN DERIVED VALUES
+  // ------------------------------------
   let cooldownActive = false;
   let cooldownRemainingMs = 0;
   let cooldownProgress = 0;
@@ -835,13 +894,18 @@ export default function GasFeeStats({ isSfxMuted }) {
     ? Math.ceil(cooldownRemainingMs / 1000)
     : 0;
 
-  // Detect if Starkey is installed (SSR-safe)
+  // ------------------------------------
+  // Detect wallet installation (SSR-safe)
+  // ------------------------------------
   const walletInstalled =
     mounted &&
     typeof window !== "undefined" &&
     "starkey" in window &&
     !!window.starkey?.supra;
 
+  // ------------------------------------
+  // BUTTON LABEL SELECTION
+  // ------------------------------------
   const buttonLabel = !connected
     ? connecting
       ? "Connecting…"
@@ -865,6 +929,9 @@ export default function GasFeeStats({ isSfxMuted }) {
     (connected && hasAccess === false) ||
     (connected && hasAccess && hasStats && cooldownActive);
 
+  // ------------------------------------
+  // USD VALUE DISPLAYS
+  // ------------------------------------
   const totalSupraUsdDisplay =
     totalSupra && supraUsdPrice != null
       ? formatUsdApproxFromSupraString(totalSupra, supraUsdPrice)
@@ -880,7 +947,9 @@ export default function GasFeeStats({ isSfxMuted }) {
       ? formatUsdApproxFromSupraString(monthlyAvgSupra, supraUsdPrice)
       : null;
 
-  // --- Progress bar derived display ---
+  // ------------------------------------
+  // PROGRESS BAR DERIVED DISPLAY
+  // ------------------------------------
   let displayProgressPercent = 0;
   let progressLabelText = "No sync run yet.";
 
@@ -898,7 +967,9 @@ export default function GasFeeStats({ isSfxMuted }) {
     progressLabelText = "No sync run yet";
   }
 
-  // --- Rift Energy bar display ---
+  // ------------------------------------
+  // RIFT ENERGY BAR DISPLAY
+  // ------------------------------------
   let energyProgress = 0;
 
   if (!connected || !address) {
@@ -930,6 +1001,9 @@ export default function GasFeeStats({ isSfxMuted }) {
     riftStatusLabel = "Full";
   }
 
+  // ------------------------------------
+  // FORMATTED DISPLAYS
+  // ------------------------------------
   const formattedTxCount =
     typeof txCount === "number" && txCount.toLocaleString
       ? txCount.toLocaleString()
@@ -969,12 +1043,14 @@ export default function GasFeeStats({ isSfxMuted }) {
     !isDraining &&
     !manualSyncActive &&
     energyProgress >= 0.999;
+
   const riftBarClassName = `rift-energy-bar${
     isEnergyFull ? " rift-energy-bar--full" : ""
   }`;
 
   const isProgressFull =
     !calculating && hasStats && displayProgressPercent >= 100;
+
   const progressBarClassName = `progress-bar${
     isProgressFull ? " progress-bar--full" : ""
   }`;
@@ -1003,7 +1079,7 @@ export default function GasFeeStats({ isSfxMuted }) {
       ? "Access denied: this wallet must hold at least 1,000 $SUPRAWR to use this tool."
       : "";
 
-  return (
+        return (
     <>
       <section className="gas-card">
         <div className="dashboard-panel-header">
@@ -1019,6 +1095,7 @@ export default function GasFeeStats({ isSfxMuted }) {
             Powered by Supra RPC & Rift Energy
           </span>
         </div>
+
         <h1 className="dashboard-title">
           <span className="gas-icon">⛽︎</span> GAS TRACKER
         </h1>
@@ -1052,15 +1129,16 @@ export default function GasFeeStats({ isSfxMuted }) {
                   <strong>SUPRA coin transactions only</strong> for your
                   connected wallet, using Supra’s public RPC.
                 </p>
+
                 <p>
-                  It works through the <code>coin_transactions</code>{" "}
-                  endpoint, which is the only RPC endpoint that includes
-                  gas usage details.{" "}
+                  It works through the{" "}
+                  <code>coin_transactions</code> endpoint, which is the
+                  only RPC endpoint that includes gas usage details.{" "}
                   <strong>
                     The only place full gas-fee data exists is inside the
-                    complete transaction detail, which Supra RPC
-                    currently does not expose through any public “fetch by
-                    hash” endpoint.
+                    complete transaction detail, which Supra RPC currently
+                    does not expose through any public “fetch by hash”
+                    endpoint.
                   </strong>{" "}
                   Because of this,{" "}
                   <strong>
@@ -1068,20 +1146,22 @@ export default function GasFeeStats({ isSfxMuted }) {
                     non-coin actions cannot be included.
                   </strong>
                 </p>
+
                 <p>
                   <strong>
-                    There is currently no way to compute a wallet’s
-                    total gas fees across ALL transaction types using
-                    only the public Supra RPC.
+                    There is currently no way to compute a wallet’s total
+                    gas fees across ALL transaction types using only the
+                    public Supra RPC.
                   </strong>
                 </p>
+
                 <p>
                   To improve performance, the tool{" "}
                   <strong>
                     automatically syncs and calculates when you connect
                     your wallet
-                  </strong>
-                  , then <strong>caches results for 24 hours</strong>.
+                  </strong>{" "}
+                  then <strong>caches results for 24 hours</strong>.
                   Reconnecting within that window shows cached values
                   instantly. After 24 hours, a fresh sync runs
                   automatically. You can also manually force a new sync
@@ -1092,6 +1172,7 @@ export default function GasFeeStats({ isSfxMuted }) {
           </div>
         )}
 
+        {/* Connected Wallet Field */}
         <div className="field-block">
           <label htmlFor="wallet" className="field-label">
             Connected Supra Wallet
@@ -1107,6 +1188,7 @@ export default function GasFeeStats({ isSfxMuted }) {
           />
         </div>
 
+        {/* MAIN BUTTON */}
         <button
           className="primary-button"
           onClick={handleAction}
@@ -1116,23 +1198,22 @@ export default function GasFeeStats({ isSfxMuted }) {
           {buttonLabel}
         </button>
 
-        {/* Rift Energy Recharge bar – always visible */}
+        {/* Rift Energy Recharge bar */}
         <div className="rift-energy-wrapper">
           <div className="rift-energy-header">
             <span className="rift-energy-title">Rift Energy</span>
             <span className="rift-energy-status">{riftStatusLabel}</span>
           </div>
+
           <div className={riftBarClassName}>
             <div
               className="rift-energy-bar-fill"
-              style={{
-                width: `${Math.round(energyProgress * 100)}%`,
-              }}
+              style={{ width: `${Math.round(energyProgress * 100)}%` }}
             />
           </div>
         </div>
 
-        {/* Rift Sync bar – always visible */}
+        {/* Rift Sync progress bar */}
         <div className="progress-wrapper">
           <div className="progress-header">
             <span className="progress-title">Rift Sync</span>
@@ -1147,9 +1228,11 @@ export default function GasFeeStats({ isSfxMuted }) {
           </div>
         </div>
 
+        {/* Errors */}
         {accessError && <div className="alert error">{accessError}</div>}
         {error && <div className="alert error">{error}</div>}
 
+        {/* Results */}
         {connected && hasAccess && !error && (
           <div className="results">
             <div className="result-row">
