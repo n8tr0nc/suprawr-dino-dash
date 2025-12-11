@@ -374,7 +374,7 @@ function saveRiftCooldown(address, endMs) {
 
 // -------------------- MAIN COMPONENT --------------------
 
-export default function GasFeeStats() {
+export default function GasFeeStats({ isSfxMuted }) {
   // NEW: split wallet + stats
   const { connected, address, connect } = useWallet();
   const { hasAccess, supraUsdPrice, loadingAccess, loadingBalances } =
@@ -681,7 +681,7 @@ export default function GasFeeStats() {
     };
   }, [connected, address, cooldownEndMs]);
 
-  // Init drain sound audio once on client
+    // Init drain sound audio once on client
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (drainAudioRef.current) return;
@@ -722,16 +722,31 @@ export default function GasFeeStats() {
     };
   }, [isDraining]);
 
-  // Play drain sound once when drain actually starts
+  // Play drain sound once when drain actually starts, respect SFX mute
   useEffect(() => {
+    // If not draining, reset the flag and exit
     if (!isDraining) {
       drainSoundPlayedRef.current = false;
       return;
     }
 
-    if (drainSoundPlayedRef.current) return;
     const audio = drainAudioRef.current;
     if (!audio) return;
+
+    // If SFX is muted, stop any sound and prevent playback
+    if (isSfxMuted) {
+      try {
+        audio.pause();
+        audio.currentTime = 0;
+      } catch {
+        // ignore
+      }
+      drainSoundPlayedRef.current = false;
+      return;
+    }
+
+    // Only play once when drain begins
+    if (drainSoundPlayedRef.current) return;
 
     try {
       audio.currentTime = 0;
@@ -739,8 +754,9 @@ export default function GasFeeStats() {
     } catch {
       // cosmetic only
     }
+
     drainSoundPlayedRef.current = true;
-  }, [isDraining]);
+  }, [isDraining, isSfxMuted]);
 
   // Clean up info modal timer + drain audio on unmount
   useEffect(() => {

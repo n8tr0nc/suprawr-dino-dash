@@ -48,7 +48,11 @@ function getRankBadgePath(tier) {
   }
 }
 
-export default function Sidebar({ isSidebarOpen, onOpenRankModal }) {
+export default function Sidebar({
+  isSidebarOpen,
+  onOpenRankModal,
+  isSfxMuted,   // <-- NEW, only addition to props
+}) {
   const { connected, address } = useWallet();
   const {
     supraBalance,
@@ -62,6 +66,7 @@ export default function Sidebar({ isSidebarOpen, onOpenRankModal }) {
 
   // -------------------------------
   // Refresh sound (loop while loadingBalances is true)
+  // NOW respects isSfxMuted.
   // -------------------------------
   const refreshAudioRef = useRef(null);
   const prevLoadingRef = useRef(false);
@@ -80,35 +85,38 @@ export default function Sidebar({ isSidebarOpen, onOpenRankModal }) {
     const audio = refreshAudioRef.current;
     if (!audio) return;
 
-    // On disconnect: hard-stop any playing sound and reset flag
+    // 🔇 If muted → FORCE STOP and exit early
+    if (isSfxMuted) {
+      try {
+        audio.pause();
+        audio.currentTime = 0;
+      } catch {}
+      prevLoadingRef.current = false;
+      return;
+    }
+
+    // 🔊 If NOT muted, resume normal behavior
     if (!connected) {
       try {
         audio.pause();
         audio.currentTime = 0;
-      } catch {
-        // ignore
-      }
+      } catch {}
       prevLoadingRef.current = false;
     } else {
-      // Only react when loadingBalances actually changes
+      // Only trigger start/stop when state changes
       if (loadingBalances && !prevLoadingRef.current) {
         try {
           audio.currentTime = 0;
           audio.play().catch(() => {});
-        } catch {
-          // cosmetic only
-        }
+        } catch {}
       } else if (!loadingBalances && prevLoadingRef.current) {
         try {
           audio.pause();
           audio.currentTime = 0;
-        } catch {
-          // cosmetic only
-        }
+        } catch {}
       }
     }
 
-    // Track whether we consider the loop "active"
     prevLoadingRef.current = connected && loadingBalances;
 
     return () => {
@@ -116,11 +124,9 @@ export default function Sidebar({ isSidebarOpen, onOpenRankModal }) {
       try {
         audio.pause();
         audio.currentTime = 0;
-      } catch {
-        // ignore
-      }
+      } catch {}
     };
-  }, [loadingBalances, connected]);
+  }, [loadingBalances, connected, isSfxMuted]); // <-- mute support added
 
   const shortAddress =
     address && address.length > 10
@@ -167,7 +173,15 @@ export default function Sidebar({ isSidebarOpen, onOpenRankModal }) {
         {/* ------------------------------ */}
         {/*   RANK BADGE / SKELETON        */}
         {/* ------------------------------ */}
-        {accessTier ? (
+        {loadingBalances && connected ? (
+          <div
+            className="sidebar-rank sidebar-rank--skeleton"
+            aria-hidden="true"
+          >
+            <span className="sidebar-rank-orbit-skeleton" />
+            <span className="sidebar-rank-label-skeleton" />
+          </div>
+        ) : accessTier ? (
           <button
             type="button"
             className="sidebar-rank"
@@ -183,14 +197,6 @@ export default function Sidebar({ isSidebarOpen, onOpenRankModal }) {
 
             <span className="sidebar-rank-label">{accessTier}</span>
           </button>
-        ) : loadingBalances && connected ? (
-          <div
-            className="sidebar-rank sidebar-rank--skeleton"
-            aria-hidden="true"
-          >
-            <span className="sidebar-rank-orbit-skeleton" />
-            <span className="sidebar-rank-label-skeleton" />
-          </div>
         ) : null}
 
         <div className="sidebar-section">
@@ -295,7 +301,7 @@ export default function Sidebar({ isSidebarOpen, onOpenRankModal }) {
         </div>
       </div>
 
-      {/* SOCIALS — EXACTLY AS ORIGINAL */}
+      {/* SOCIALS — EXACTLY AS ORIGINAL, UNTOUCHED */}
       <div className="sidebar-social">
         <a
           href="https://x.com/suprawrcoin"

@@ -22,13 +22,13 @@ export default function RiftEntryOverlay({
   visible,
   onEnterGuest,
   ensureBgAudio, // callback from Page to start bg audio
+  isSfxMuted, // NEW: global SFX mute flag
 }) {
   const [isExiting, setIsExiting] = useState(false);
   const [shouldRender, setShouldRender] = useState(visible);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isEntering, setIsEntering] = useState(false);
 
-  // NEW: wallet hook instead of useAccess
   const { connect, connected } = useWallet();
 
   // Detect whether Starkey is installed (for button label)
@@ -58,7 +58,6 @@ export default function RiftEntryOverlay({
       audioRef.current = audio;
     }
 
-    // Hardening: make sure we don't leave a playing sound behind
     return () => {
       const audio = audioRef.current;
       if (!audio) return;
@@ -72,6 +71,8 @@ export default function RiftEntryOverlay({
   }, []);
 
   const playTerminalSound = useCallback(() => {
+    if (isSfxMuted) return; // respect global SFX mute
+
     const audio = audioRef.current;
     if (!audio) return;
 
@@ -83,11 +84,10 @@ export default function RiftEntryOverlay({
     } catch {
       // fail silently
     }
-  }, []);
+  }, [isSfxMuted]);
 
   // Tie sound + state changes directly to enter/exit transitions
   useEffect(() => {
-    // Nothing to do if overlay is fully gone and should not render
     if (!visible && !shouldRender) return;
 
     // ---- ENTERING ----
@@ -98,7 +98,7 @@ export default function RiftEntryOverlay({
       setIsEntering(true);
 
       if (!hasPlayedEntryRef.current) {
-        playTerminalSound(); // play once at start of enter
+        playTerminalSound();
         hasPlayedEntryRef.current = true;
         hasPlayedExitRef.current = false;
       }
@@ -115,7 +115,11 @@ export default function RiftEntryOverlay({
       setIsExiting(true);
 
       if (!hasPlayedExitRef.current) {
-        playTerminalSound(); // play once at start of exit
+        // Start BG music + play exit SFX once on overlay exit
+        if (typeof ensureBgAudio === "function") {
+          ensureBgAudio();
+        }
+        playTerminalSound();
         hasPlayedExitRef.current = true;
         hasPlayedEntryRef.current = false;
       }
@@ -127,7 +131,7 @@ export default function RiftEntryOverlay({
 
       return () => clearTimeout(timeoutId);
     }
-  }, [visible, shouldRender, playTerminalSound]);
+  }, [visible, shouldRender, playTerminalSound, ensureBgAudio]);
 
   // Auto-dismiss overlay when wallet actually becomes connected
   useEffect(() => {
@@ -143,11 +147,6 @@ export default function RiftEntryOverlay({
   }${isEntering ? " rift-entry-overlay--entering" : ""}`;
 
   const handleConnectClick = async () => {
-    // Start bg audio from this user interaction
-    if (typeof ensureBgAudio === "function") {
-      ensureBgAudio();
-    }
-
     try {
       setIsConnecting(true);
       await connect();
@@ -162,11 +161,6 @@ export default function RiftEntryOverlay({
   };
 
   const handleGuestClick = () => {
-    // Start bg audio from this user interaction
-    if (typeof ensureBgAudio === "function") {
-      ensureBgAudio();
-    }
-
     if (typeof onEnterGuest === "function") {
       onEnterGuest();
     }
@@ -202,7 +196,9 @@ export default function RiftEntryOverlay({
           <div className="rift-entry-hud-title">STELLAR LOCK //</div>
           <div className="rift-entry-hud-row">
             <span className="rift-entry-hud-key">System</span>
-            <span className="rift-entry-hud-value">D-88 Draxion Cluster</span>
+            <span className="rift-entry-hud-value">
+              D-88 Draxion Cluster
+            </span>
           </div>
           <div className="rift-entry-hud-row">
             <span className="rift-entry-hud-key">World</span>
@@ -274,13 +270,6 @@ export default function RiftEntryOverlay({
           </div>
           <div className="rift-entry-status-line">
             <span className="rift-entry-status-prefix">&gt;</span>
-            <span>
-              {" "}
-              Awaiting Starkey identity signature bound to $SUPRAWR DNA.
-            </span>
-          </div>
-          <div className="rift-entry-status-line">
-            <span className="rift-entry-status-prefix">&gt;</span>
             {isConnecting ? (
               <span>
                 Syncing creds across Primal Rift nodes. Handshake in
@@ -288,9 +277,15 @@ export default function RiftEntryOverlay({
               </span>
             ) : (
               <span>
-                Connect wallet to unlock wallet logs and telemetry.
+                Awaiting Starkey identity signature bound to $SUPRAWR DNA.
               </span>
             )}
+          </div>
+          <div className="rift-entry-status-line">
+            <span className="rift-entry-status-prefix">&gt;</span>
+            <span>
+              Connect wallet to unlock wallet logs and telemetry.
+            </span>
           </div>
         </div>
 

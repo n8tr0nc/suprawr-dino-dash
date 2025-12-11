@@ -18,7 +18,7 @@ import "./styles/dashboard-shell.css";
 import "./styles/modals.css";
 
 const MODAL_ANIM_MS = 500;
-const BG_BASE_VOLUME = 0.35; // main bg volume
+const BG_BASE_VOLUME = 0.35;
 
 // --------------------------
 // Rank badge resolver
@@ -41,19 +41,17 @@ function getRankBadgePath(tier) {
 }
 
 export default function Page() {
-  // NEW: split access into wallet + stats
   const { connected, address } = useWallet();
-  const { accessTier } = useStats();
+  const { accessTier, loadingBalances } = useStats();
 
   const currentTier = accessTier || null;
   const rankBadgeSrc = currentTier ? getRankBadgePath(currentTier) : null;
+  const isRankLoaded = !!(rankBadgeSrc && currentTier);
 
   const modalWalletShort =
     address && connected
       ? `${address.slice(0, 4)}...${address.slice(-4)}`
       : "";
-
-  const isRankLoaded = !!(rankBadgeSrc && currentTier);
 
   // Sidebar open/close (mobile)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -69,21 +67,26 @@ export default function Page() {
   const rankModalTimerRef = useRef(null);
 
   // --------------------------
-  // Background terminal audio
+  // Background audio
   // --------------------------
   const bgAudioRef = useRef(null);
   const bgStartedRef = useRef(false);
   const fadeIntervalRef = useRef(null);
   const [isBgMuted, setIsBgMuted] = useState(false);
 
-  // Init audio element once
+  // --------------------------
+  // NEW: Global SFX mute
+  // --------------------------
+  const [isSfxMuted, setIsSfxMuted] = useState(false);
+
+  // Init bg audio
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     if (!bgAudioRef.current) {
       const audio = new Audio("/audio/bg-001.mp3");
       audio.loop = true;
-      audio.volume = isBgMuted ? 0 : BG_BASE_VOLUME;
+      audio.volume = 0;
       bgAudioRef.current = audio;
     }
 
@@ -93,43 +96,67 @@ export default function Page() {
       try {
         audio.pause();
         audio.currentTime = 0;
-      } catch {
-        // ignore
-      }
+      } catch {}
       if (fadeIntervalRef.current) {
         clearInterval(fadeIntervalRef.current);
         fadeIntervalRef.current = null;
       }
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Start bg audio from a user interaction
+  // Fade-in bg audio on start
   const ensureBgAudio = useCallback(() => {
     if (bgStartedRef.current) return;
     const audio = bgAudioRef.current;
     if (!audio) return;
 
     bgStartedRef.current = true;
+    audio.volume = 0;
+
     audio
       .play()
+      .then(() => {
+        const target = isBgMuted ? 0 : BG_BASE_VOLUME;
+
+        if (fadeIntervalRef.current)
+          clearInterval(fadeIntervalRef.current);
+
+        const step = 0.05;
+        const interval = window.setInterval(() => {
+          const a = bgAudioRef.current;
+          if (!a) {
+            clearInterval(interval);
+            fadeIntervalRef.current = null;
+            return;
+          }
+          const diff = target - a.volume;
+          if (diff <= 0) {
+            a.volume = target;
+            clearInterval(interval);
+            fadeIntervalRef.current = null;
+            return;
+          }
+          a.volume = Math.min(target, a.volume + step);
+        }, 80);
+
+        fadeIntervalRef.current = interval;
+      })
       .catch(() => {
-        // if browser blocks, allow retry on next click
         bgStartedRef.current = false;
       });
-  }, []);
+  }, [isBgMuted]);
 
-  // Smooth fade mute/unmute
+  // Fade mute/unmute
   useEffect(() => {
     const audio = bgAudioRef.current;
     if (!audio) return;
 
-    if (fadeIntervalRef.current) {
+    if (fadeIntervalRef.current)
       clearInterval(fadeIntervalRef.current);
-      fadeIntervalRef.current = null;
-    }
 
     const target = isBgMuted ? 0 : BG_BASE_VOLUME;
     const step = 0.05;
+
     const interval = window.setInterval(() => {
       const a = bgAudioRef.current;
       if (!a) {
@@ -137,7 +164,6 @@ export default function Page() {
         fadeIntervalRef.current = null;
         return;
       }
-
       const diff = target - a.volume;
       if (Math.abs(diff) <= step) {
         a.volume = target;
@@ -145,7 +171,6 @@ export default function Page() {
         fadeIntervalRef.current = null;
         return;
       }
-
       a.volume = Math.max(
         0,
         Math.min(1, a.volume + Math.sign(diff) * step)
@@ -155,68 +180,51 @@ export default function Page() {
     fadeIntervalRef.current = interval;
 
     return () => {
-      if (fadeIntervalRef.current) {
+      if (fadeIntervalRef.current)
         clearInterval(fadeIntervalRef.current);
-        fadeIntervalRef.current = null;
-      }
     };
   }, [isBgMuted]);
 
-  const handleToggleBgMute = useCallback(() => {
-    setIsBgMuted((prev) => !prev);
-  }, []);
+  const handleToggleBgMute = () =>
+    setIsBgMuted((v) => !v);
+  const handleToggleSfxMute = () =>
+    setIsSfxMuted((v) => !v);
 
-  // Stop bg audio when wallet disconnects
+  // Stop bg music when disconnect
   useEffect(() => {
     const audio = bgAudioRef.current;
     if (!audio) return;
-
     if (!connected) {
       try {
         audio.pause();
         audio.currentTime = 0;
-      } catch {
-        // ignore
-      }
+      } catch {}
       bgStartedRef.current = false;
     }
   }, [connected]);
 
-  // ---------------------------------------
-  // Entry overlay (guest or wallet enter)
-  // ---------------------------------------
   const handleEnterGuest = () => {
     setHasEnteredOnce(true);
     setShowEntryOverlay(false);
     setShowRiftFx(true);
-
     setTimeout(() => setShowRiftFx(false), 700);
   };
 
-  // ---------------------------------------
-  // Rank modal open
-  // ---------------------------------------
   const handleOpenRankModal = () => {
-    if (rankModalTimerRef.current) {
+    if (rankModalTimerRef.current)
       clearTimeout(rankModalTimerRef.current);
-      rankModalTimerRef.current = null;
-    }
 
     setIsRankModalExiting(false);
     setShowRankModal(true);
   };
 
-  // ---------------------------------------
-  // Rank modal close (with exit animation)
-  // ---------------------------------------
   const handleCloseRankModal = () => {
     if (!showRankModal) return;
 
     setIsRankModalExiting(true);
 
-    if (rankModalTimerRef.current) {
+    if (rankModalTimerRef.current)
       clearTimeout(rankModalTimerRef.current);
-    }
 
     rankModalTimerRef.current = setTimeout(() => {
       setShowRankModal(false);
@@ -226,43 +234,40 @@ export default function Page() {
   };
 
   const handleToggleSidebar = () =>
-    setIsSidebarOpen((prev) => !prev);
+    setIsSidebarOpen((v) => !v);
 
-  // Restore overlay if wallet disconnects AFTER entry
   useEffect(() => {
     if (!connected && hasEnteredOnce) {
       setShowEntryOverlay(true);
     }
   }, [connected, hasEnteredOnce]);
 
-  // Cleanup timers
   useEffect(() => {
     return () => {
-      if (rankModalTimerRef.current) {
+      if (rankModalTimerRef.current)
         clearTimeout(rankModalTimerRef.current);
-      }
     };
   }, []);
 
-  const dashboardShellClass = `dashboard-shell${
+  const shellCls = `dashboard-shell${
     showEntryOverlay ? " dashboard-shell--hidden" : ""
   }`;
 
   return (
     <div className="dashboard-root">
-      {/* Rift entry overlay */}
       <OverlayRoot
         showEntryOverlay={showEntryOverlay}
         handleEnterGuest={handleEnterGuest}
         showRiftFx={showRiftFx}
         ensureBgAudio={ensureBgAudio}
+        isSfxMuted={isSfxMuted} // NEW
       />
 
-      {/* Dashboard Shell */}
-      <div className={dashboardShellClass}>
+      <div className={shellCls}>
         <Sidebar
           isSidebarOpen={isSidebarOpen}
           onOpenRankModal={handleOpenRankModal}
+          isSfxMuted={isSfxMuted} // NEW
         />
 
         {isSidebarOpen && (
@@ -278,23 +283,11 @@ export default function Page() {
             onOpenRankModal={handleOpenRankModal}
             isBgMuted={isBgMuted}
             onToggleBgMute={handleToggleBgMute}
+            isSfxMuted={isSfxMuted}         // NEW
+            onToggleSfxMute={handleToggleSfxMute} // NEW
           />
 
-          {/*<header className="dashboard-header">
-            <div className="dashboard-header-left">
-              <div>
-                <h1 className="dashboard-title">
-                  <span className="gas-icon">⛽︎</span> GAS TRACKER
-                </h1>
-                <p className="dashboard-subtitle">
-                  Track your gas spending on your Supra wallet and get other
-                  useful fee telemetry.
-                </p>
-              </div>
-            </div>
-          </header>*/}
-
-          <GasTracker />
+          <GasTracker isSfxMuted={isSfxMuted} />
 
           <section className="dashboard-panel panel-25">
             <div className="dashboard-panel-body">
@@ -314,7 +307,7 @@ export default function Page() {
         </div>
       </div>
 
-      {/* Rank Modal */}
+      {/* Rank Modal — unchanged except props flow */}
       {showRankModal && (
         <div
           className={`modal-001-overlay rank-modal-overlay${
@@ -339,7 +332,9 @@ export default function Page() {
 
             <div className="modal-001-body">
               <div className="rank-modal-badge-wrap">
-                {isRankLoaded ? (
+                {loadingBalances && connected ? (
+                  <div className="rank-modal-orbit-skeleton" />
+                ) : isRankLoaded ? (
                   <img
                     src={rankBadgeSrc}
                     alt={currentTier}
@@ -350,8 +345,12 @@ export default function Page() {
                 )}
               </div>
 
-              {isRankLoaded ? (
-                <div className="rank-modal-tier-name">{currentTier}</div>
+              {loadingBalances && connected ? (
+                <div className="rank-modal-tier-name-skeleton" />
+              ) : isRankLoaded ? (
+                <div className="rank-modal-tier-name">
+                  {currentTier}
+                </div>
               ) : (
                 <div className="rank-modal-tier-name-skeleton" />
               )}
@@ -371,8 +370,8 @@ export default function Page() {
               )}
 
               <p>
-                Your rank is based on your total $SUPRAWR holdings. Higher tiers
-                unlock more features inside DinoDash.
+                Your rank is based on your total $SUPRAWR holdings. Higher
+                tiers unlock more features inside DinoDash.
               </p>
 
               <ul className="tier-list">

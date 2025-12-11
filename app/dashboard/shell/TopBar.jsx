@@ -52,11 +52,10 @@ export default function TopBar({
   onOpenRankModal,
   isBgMuted,
   onToggleBgMute,
+  isSfxMuted,      // NEW
+  onToggleSfxMute, // NEW
 }) {
-  // NEW: wallet from WalletProvider
   const { connected, address, connect, disconnect } = useWallet();
-
-  // NEW: loading flags from StatsProvider
   const { loadingBalances, loadingAccess } = useStats();
 
   const [walletInstalled, setWalletInstalled] = useState(false);
@@ -146,6 +145,12 @@ export default function TopBar({
     }
   };
 
+  const handleSfxToggleClick = () => {
+    if (typeof onToggleSfxMute === "function") {
+      onToggleSfxMute();
+    }
+  };
+
   return (
     <div className="top-right-bar">
       {/* LEFT: Homeworld broadcast */}
@@ -180,7 +185,7 @@ export default function TopBar({
         </div>
       </div>
 
-      {/* RIGHT: burger + mute + wallet controls */}
+      {/* RIGHT: burger + SFX + music + wallet controls */}
       <div className="top-right-controls">
         {onToggleSidebar && (
           <button
@@ -192,6 +197,32 @@ export default function TopBar({
           </button>
         )}
 
+        {/* NEW: SFX mute toggle (left of music button) */}
+        <button
+          type="button"
+          className={
+            "top-right-audio-toggle" +
+            (isSfxMuted ? " top-right-audio-toggle--muted" : "")
+          }
+          onClick={handleSfxToggleClick}
+          aria-label={
+            isSfxMuted ? "Unmute sound effects" : "Mute sound effects"
+          }
+        >
+          <span className="top-right-audio-indicator">
+            <svg
+              className="top-right-audio-icon"
+              viewBox="0 0 128 128"
+              aria-hidden="true"
+              focusable="false"
+            >
+              {/* From your Sound_waves SVG: icon:4 */}
+              <path d="M24.7 42.6H0V31.9h24.7v10.7zm0 2.7H0V56h24.7V45.3zm0 13.4H0v10.7h24.7V58.7zm0 13.3H0v10.7h24.7V72zm0 13.4H0v10.7h24.7V85.4zm69.8-40.1H69.8V56h24.7V45.3zm0 13.4H69.8v10.7h24.7V58.7zm0 13.3H69.8v10.7h24.7V72zm0 13.4H69.8v10.7h24.7V85.4zM128 72h-24.7v10.7H128V72zm0 13.4h-24.7v10.7H128V85.4zM59.6 58.7H34.9v10.7h24.7V58.7zm0 13.3H34.9v10.7h24.7V72zm0 13.4H34.9v10.7h24.7V85.4z" />
+            </svg>
+          </span>
+        </button>
+
+        {/* Existing background music toggle */}
         <button
           type="button"
           className={
@@ -212,10 +243,10 @@ export default function TopBar({
               aria-hidden="true"
               focusable="false"
             >
-              <g fill="#7ae97a">
-                <path d="M1430.7 1228.39c56.217 0 107.118 22.792 143.962 59.635 36.843 36.843 59.634 87.744 59.634 143.962 0 56.217-22.79 107.118-59.634 143.961-36.844 36.845-87.745 59.635-143.962 59.635-56.217 0-107.118-22.79-143.961-59.635-36.844-36.843-59.635-87.744-59.635-143.96 0-56.22 22.79-107.12 59.635-143.963 36.843-36.843 87.744-59.635 143.961-59.635z"/>
-                <path d="m1533.79 259.873-.006-.058 30.878-3.429c34.35-3.817 65.42 21.038 69.234 55.39.544 4.912.382 2.479.382 7.058v1081.33c0 34.613-28.08 62.694-62.694 62.694-34.613 0-62.694-28.08-62.694-62.694V388.684l-685.712 76.19v1115.53c0 34.615-28.08 62.694-62.694 62.694-34.613 0-62.694-28.08-62.694-62.694V408.814c0-32.915 25.44-58.884 57.661-62.464l778.34-86.482z"/>
-                <path d="M618.439 1382.53c56.531 0 107.717 22.918 144.767 59.968 37.05 37.05 59.968 88.236 59.968 144.767 0 56.531-22.918 107.717-59.968 144.767-37.05 37.049-88.236 59.967-144.767 59.967-56.531 0-107.717-22.918-144.767-59.967-37.049-37.05-59.968-88.235-59.968-144.767 0-56.53 22.92-107.717 59.968-144.767 37.05-37.05 88.235-59.968 144.767-59.968z"/>
+              <g>
+                <path d="M1430.7 1228.39c56.217 0 107.118 22.792 143.962 59.635 36.843 36.843 59.634 87.744 59.634 143.962 0 56.217-22.79 107.118-59.634 143.961-36.844 36.845-87.745 59.635-143.962 59.635-56.217 0-107.118-22.79-143.961-59.635-36.844-36.843-59.635-87.744-59.635-143.96 0-56.22 22.79-107.12 59.635-143.963 36.843-36.843 87.744-59.635 143.961-59.635z" />
+                <path d="m1533.79 259.873-.006-.058 30.878-3.429c34.35-3.817 65.42 21.038 69.234 55.39.544 4.912.382 2.479.382 7.058v1081.33c0 34.613-28.08 62.694-62.694 62.694-34.613 0-62.694-28.08-62.694-62.694V388.684l-685.712 76.19v1115.53c0 34.615-28.08 62.694-62.694 62.694-34.613 0-62.694-28.08-62.694-62.694V408.814c0-32.915 25.44-58.884 57.661-62.464l778.34-86.482z" />
+                <path d="M618.439 1382.53c56.531 0 107.717 22.918 144.767 59.968 37.05 37.05 59.968 88.236 59.968 144.767 0 56.531-22.918 107.717-59.968 144.767-37.05 37.049-88.236 59.967-144.767 59.967-56.531 0-107.717-22.918-144.767-59.967-37.049-37.05-59.968-88.235-59.968-144.767 0-56.53 22.92-107.717 59.968-144.767 37.05-37.05 88.235-59.968 144.767-59.968z" />
               </g>
             </svg>
           </span>
