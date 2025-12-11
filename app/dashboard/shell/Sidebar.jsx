@@ -33,6 +33,8 @@ function formatSidebarBalance(raw) {
 // -------------------------------
 function getRankBadgePath(tier) {
   switch (tier) {
+    case "Unranked":
+      return "/rank/unranked-001.webp";
     case "Hatchling":
       return "/rank/hatchling-001.webp";
     case "Scaleborn":

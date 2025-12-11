@@ -20,7 +20,10 @@ const BALANCE_CACHE_TTL = 3_600_000; // 60 minutes
 
 // Tier logic copied from your previous AccessProvider
 function computeTierFromSupraWr(balanceDisplay) {
-  if (!balanceDisplay) return null;
+  // Treat empty / missing as zero → Unranked
+  if (balanceDisplay == null || balanceDisplay === "") {
+    return "Unranked";
+  }
 
   const cleanedInt = String(balanceDisplay)
     .split(".")[0]
@@ -31,10 +34,11 @@ function computeTierFromSupraWr(balanceDisplay) {
   try {
     whole = BigInt(cleanedInt || "0");
   } catch {
-    return null;
+    // If parsing fails, just treat as zero / Unranked
+    return "Unranked";
   }
 
-  if (whole <= 0n) return null;
+  if (whole === 0n) return "Unranked";
 
   if (whole >= 10_000_000n) return "Master";
   if (whole >= 1_000_000n) return "Titan";
