@@ -436,6 +436,8 @@ export default function GasFeeStats({ isSfxMuted }) {
 
   const scanAudioRef = useRef(null);
 
+  const chargeAudioRef = useRef(null);
+
   // -------------------------------
   // NEW: MATRIX EFFECT STATE
   // -------------------------------
@@ -500,12 +502,24 @@ export default function GasFeeStats({ isSfxMuted }) {
   // RIFT COOLDOWN TRIGGER
   // -------------------------------
 
-  const startRiftCooldown = useCallback((addr) => {
-    if (!addr) return;
-    const end = Date.now() + COOLDOWN_MS;
-    setCooldownEndMs(end);
-    saveRiftCooldown(addr, end);
-  }, []);
+  const startRiftCooldown = useCallback(
+    (addr) => {
+      if (!addr) return;
+      const end = Date.now() + COOLDOWN_MS;
+      setCooldownEndMs(end);
+      saveRiftCooldown(addr, end);
+
+      // 🔊 Play charge sound ONCE when recharge begins
+      const audio = chargeAudioRef.current;
+      if (audio && !isSfxMuted) {
+        try {
+          audio.currentTime = 0;
+          audio.play().catch(() => {});
+        } catch {}
+      }
+    },
+    [isSfxMuted]
+  );
 
   // -------------------------------
   // GAS CALC + CACHE
@@ -571,8 +585,8 @@ export default function GasFeeStats({ isSfxMuted }) {
         setPagesProcessed(0);
       } finally {
         setCalculating(false);
-        // Do NOT stop draining or manual sync here.
-        // Let the drain animation finish first.
+        // Scan is finished; manual sync phase is over.
+        setManualSyncActive(false);
       }
     },
     [startRiftCooldown]
@@ -698,7 +712,7 @@ export default function GasFeeStats({ isSfxMuted }) {
   }, [cooldownEndMs]);
 
   // -------------------------------
-  // ENERGY CHARGE ANIMATION
+  // ENERGY CHARGE ANIMATION (VISUAL ONLY)
   // -------------------------------
 
   useEffect(() => {
@@ -707,19 +721,21 @@ export default function GasFeeStats({ isSfxMuted }) {
       return;
     }
 
+    // Don't run charge animation while draining, during manual sync, or in cooldown
+    if (isDraining || (manualSyncActive && calculating)) return;
     if (cooldownEndMs && cooldownEndMs > Date.now()) return;
 
     let rafId;
     const duration = 400;
 
     setEnergyAnim(0);
-
     const start = performance.now();
 
     const step = (now) => {
       const elapsed = now - start;
       const t = Math.min(1, elapsed / duration);
       setEnergyAnim(t);
+
       if (t < 1) {
         rafId = requestAnimationFrame(step);
       }
@@ -727,8 +743,10 @@ export default function GasFeeStats({ isSfxMuted }) {
 
     rafId = requestAnimationFrame(step);
 
-    return () => rafId && cancelAnimationFrame(rafId);
-  }, [connected, address, cooldownEndMs]);
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, [connected, address, cooldownEndMs, isDraining, manualSyncActive, calculating]);
 
   // -------------------------------
   // INIT DRAIN SOUND
@@ -758,6 +776,61 @@ export default function GasFeeStats({ isSfxMuted }) {
     scanAudioRef.current = audio;
   }, []);
 
+  // INIT CHARGE SOUND
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (chargeAudioRef.current) return;
+
+    const audio = new Audio("/audio/charge-006.mp3");
+    audio.loop = false;
+    audio.volume = 0.2;
+    chargeAudioRef.current = audio;
+  }, []);
+
+  // Reset charge sound flag whenever a new cooldown cycle starts
+  useEffect(() => {
+    // Any time cooldownEndMs changes (new scan / cleared cooldown),
+    // allow the recharge sound to play again for the next cycle.
+    chargeSoundPlayedRef.current = false;
+  }, [cooldownEndMs]);
+
+  // CHARGE SOUND — play once when energy recharge begins (SFX-mute aware)
+  useEffect(() => {
+    const audio = chargeAudioRef.current;
+    if (!audio) return;
+
+    // If SFX is muted or we’re missing basics, do nothing
+    if (!connected || !address || isSfxMuted || !hasStats) return;
+
+    // Don’t play while draining or actively syncing
+    if (isDraining || (manualSyncActive && calculating)) return;
+
+    // If we still have an active cooldown, wait
+    const now = nowMs || Date.now();
+    if (cooldownEndMs && now < cooldownEndMs) return;
+
+    // If this cycle already played the recharge sound, bail
+    if (chargeSoundPlayedRef.current) return;
+
+    // Play once
+    try {
+      audio.currentTime = 0;
+      audio.play().catch(() => {});
+    } catch {}
+
+    chargeSoundPlayedRef.current = true;
+  }, [
+    connected,
+    address,
+    hasStats,
+    isDraining,
+    manualSyncActive,
+    calculating,
+    cooldownEndMs,
+    nowMs,
+    isSfxMuted,
+  ]);
+
   // -------------------------------
   // DRAIN ANIMATION (1 → 0 over 3s)
   // -------------------------------
@@ -780,10 +853,9 @@ export default function GasFeeStats({ isSfxMuted }) {
       if (t < 1) {
         rafId = requestAnimationFrame(step);
       } else {
-        // Drain completes naturally, THEN we allow recharge logic to take over.
+        // Drain completes; keep manualSyncActive true while scan is still running.
         setDrainValue(0);
         setIsDraining(false);
-        setManualSyncActive(false);
       }
     };
 
@@ -854,6 +926,22 @@ export default function GasFeeStats({ isSfxMuted }) {
       } catch {}
     };
   }, [calculating, connected, address, isSfxMuted]);
+
+  // -------------------------------
+  // CHARGE SOUND – respond to mute toggle
+  // -------------------------------
+  useEffect(() => {
+    const audio = chargeAudioRef.current;
+    if (!audio) return;
+
+    // If muted during playback → stop immediately
+    if (isSfxMuted) {
+      try {
+        audio.pause();
+        audio.currentTime = 0;
+      } catch {}
+    }
+  }, [isSfxMuted]);
 
   // -------------------------------
   // CLEANUP ON UNMOUNT
@@ -1143,10 +1231,8 @@ if (!connected || !address) {
   riftStatusLabel = "Full";
 }
 
-// Matrix effect wrapper
-const riftStatusLabelText = calculating
-  ? randomDigitsMatching(riftStatusLabel)
-  : riftStatusLabel;
+// No matrix effect on Rift Energy label; show the real status text.
+const riftStatusLabelText = riftStatusLabel;
 
   // -------------------------------
   // RETURN
