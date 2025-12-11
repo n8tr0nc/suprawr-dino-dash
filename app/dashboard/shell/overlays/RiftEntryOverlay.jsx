@@ -270,6 +270,12 @@ export default function RiftEntryOverlay({
           </div>
           <div className="rift-entry-status-line">
             <span className="rift-entry-status-prefix">&gt;</span>
+            <span>
+              Connect wallet to unlock wallet logs and telemetry.
+            </span>
+          </div>
+          <div className="rift-entry-status-line">
+            <span className="rift-entry-status-prefix">&gt;</span>
             {isConnecting ? (
               <span>
                 Syncing creds across Primal Rift nodes. Handshake in
@@ -280,12 +286,6 @@ export default function RiftEntryOverlay({
                 Awaiting Starkey identity signature bound to $SUPRAWR DNA.
               </span>
             )}
-          </div>
-          <div className="rift-entry-status-line">
-            <span className="rift-entry-status-prefix">&gt;</span>
-            <span>
-              Connect wallet to unlock wallet logs and telemetry.
-            </span>
           </div>
         </div>
 
