@@ -12,26 +12,50 @@ export function WalletProvider({ children }) {
   const [connected, setConnected] = useState(false);
   const [address, setAddress] = useState(null);
 
-  // Detect Starkey provider once on mount (client-side only)
+  // ----------------------------------------------------
+  // ROBUST PROVIDER DETECTION — POLL UNTIL STARKY LOADS
+  // ----------------------------------------------------
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const starkey = window.starkey?.supra ?? null;
-    setProvider(starkey);
-    setWalletInstalled(!!starkey);
-    setProviderReady(true);
+    let attempts = 0;
+    const maxAttempts = 20;     // ~6 seconds
+    const interval = 300;       // ms between checks
+
+    const detectProvider = () => {
+      const starkey = window.starkey?.supra ?? null;
+
+      if (starkey) {
+        setProvider(starkey);
+        setWalletInstalled(true);
+        setProviderReady(true);
+        return;
+      }
+
+      attempts++;
+
+      if (attempts >= maxAttempts) {
+        // Provider failed to load in time
+        setProvider(null);
+        setWalletInstalled(false);
+        setProviderReady(true);
+        return;
+      }
+
+      setTimeout(detectProvider, interval);
+    };
+
+    detectProvider();
   }, []);
 
+  // ----------------------------------------------------
+  // CONNECT
+  // ----------------------------------------------------
   const connect = useCallback(async () => {
-    // No provider → open Starkey site (template behavior)
     if (!provider) {
-      if (typeof window !== "undefined") {
-        try {
-          window.open("https://starkey.app", "_blank", "noopener,noreferrer");
-        } catch {
-          // ignore
-        }
-      }
+      try {
+        window.open("https://starkey.app", "_blank", "noopener,noreferrer");
+      } catch {}
       return;
     }
 
@@ -39,15 +63,12 @@ export function WalletProvider({ children }) {
       const res = await provider.connect();
       let accounts = [];
 
-      if (Array.isArray(res)) {
-        accounts = res;
-      } else if (res && Array.isArray(res.accounts)) {
-        accounts = res.accounts;
-      }
+      if (Array.isArray(res)) accounts = res;
+      else if (res && Array.isArray(res.accounts)) accounts = res.accounts;
 
       const first = accounts[0];
-
       let nextAddress = null;
+
       if (typeof first === "string") {
         nextAddress = first;
       } else if (first && typeof first === "object") {
@@ -73,6 +94,9 @@ export function WalletProvider({ children }) {
     }
   }, [provider]);
 
+  // ----------------------------------------------------
+  // DISCONNECT
+  // ----------------------------------------------------
   const disconnect = useCallback(async () => {
     try {
       if (provider && typeof provider.disconnect === "function") {
@@ -85,13 +109,15 @@ export function WalletProvider({ children }) {
       }
     } catch (err) {
       console.warn("[WalletProvider] provider disconnect error:", err);
-      // swallow – we still clear local state
     }
 
     setConnected(false);
     setAddress(null);
   }, [provider]);
 
+  // ----------------------------------------------------
+  // CONTEXT VALUE
+  // ----------------------------------------------------
   const value = {
     providerReady,
     walletInstalled,
@@ -102,6 +128,8 @@ export function WalletProvider({ children }) {
   };
 
   return (
-    <WalletContext.Provider value={value}>{children}</WalletContext.Provider>
+    <WalletContext.Provider value={value}>
+      {children}
+    </WalletContext.Provider>
   );
 }

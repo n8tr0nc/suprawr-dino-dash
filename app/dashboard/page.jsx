@@ -18,7 +18,7 @@ import "./styles/dashboard-shell.css";
 import "./styles/modals.css";
 
 const MODAL_ANIM_MS = 500;
-const BG_BASE_VOLUME = 0.35;
+const BG_BASE_VOLUME = 0.25;
 
 // --------------------------
 // Rank badge resolver

@@ -55,20 +55,9 @@ export default function TopBar({
   isSfxMuted,      // NEW
   onToggleSfxMute, // NEW
 }) {
-  const { connected, address, connect, disconnect } = useWallet();
+  
+  const { connected, address, connect, disconnect, walletInstalled, providerReady } = useWallet();
   const { loadingBalances, loadingAccess } = useStats();
-
-  const [walletInstalled, setWalletInstalled] = useState(false);
-
-  // Detect if Starkey is installed AFTER mount to avoid hydration mismatch
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const hasStarkey =
-      "starkey" in window && !!window.starkey?.supra;
-
-    setWalletInstalled(hasStarkey);
-  }, []);
 
   const handleClick = async () => {
     if (connected) {
@@ -78,11 +67,16 @@ export default function TopBar({
     }
   };
 
-  const label = connected
-    ? "Disconnect"
-    : walletInstalled
-    ? "Connect Starkey Wallet"
-    : "Install Starkey Wallet";
+  let label = "";
+  if (connected) {
+    label = "Disconnect";
+  } else if (!providerReady) {
+    label = "Detecting Wallet…";
+  } else if (!walletInstalled) {
+    label = "Install Starkey Wallet";
+  } else {
+    label = "Connect Starkey Wallet";
+  }
 
   const short = address
     ? `${address.slice(0, 4)}...${address.slice(-4)}`

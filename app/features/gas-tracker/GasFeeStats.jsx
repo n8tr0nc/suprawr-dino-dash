@@ -571,15 +571,15 @@ export default function GasFeeStats({ isSfxMuted }) {
         setPagesProcessed(0);
       } finally {
         setCalculating(false);
-        setIsDraining(false);
-        setManualSyncActive(false);
+        // Do NOT stop draining or manual sync here.
+        // Let the drain animation finish first.
       }
     },
     [startRiftCooldown]
   );
 
-  // -------------------------------
-  // AUTO-LOAD CACHE + DEFAULT SYNC
+    // -------------------------------
+  // AUTO-LOAD CACHE ONLY (NO AUTO SCAN)
   // -------------------------------
 
   const runAccessAndMaybeCalc = useCallback(
@@ -587,36 +587,40 @@ export default function GasFeeStats({ isSfxMuted }) {
       if (!addr) return;
       setError("");
 
-      if (hasAccess === false) return;
-      if (hasAccess == null) return;
-
       const cache = loadGasCache(addr);
 
-      if (!cache) {
-        await runGasCalculationWithCache(addr, { isManualRecalc: false });
-        return;
+      if (cache) {
+        const updatedAtMs =
+          typeof cache.updatedAtMs === "number" ? cache.updatedAtMs : 0;
+
+        setTxCount(cache.totalTx || 0);
+        setTotalSupra(cache.totalSupra || null);
+        setAvgSupra(cache.avgSupra || null);
+        setMonthlyAvgSupra(cache.monthlyAvgSupra || null);
+        setLastSyncTime(
+          cache.lastSyncTime != null ? cache.lastSyncTime : updatedAtMs || null
+        );
+
+        setPagesProcessed(0);
+        setProgressPercent(0);
+        setHasStats(true);
+      } else {
+        // No cache yet → clear stats and show placeholders ("Sync for data")
+        setTxCount(0);
+        setTotalSupra(null);
+        setAvgSupra(null);
+        setMonthlyAvgSupra(null);
+        setLastSyncTime(null);
+        setPagesProcessed(0);
+        setProgressPercent(0);
+        setHasStats(false);
       }
-
-      const updatedAtMs =
-        typeof cache.updatedAtMs === "number" ? cache.updatedAtMs : 0;
-
-      setTxCount(cache.totalTx || 0);
-      setTotalSupra(cache.totalSupra || null);
-      setAvgSupra(cache.avgSupra || null);
-      setMonthlyAvgSupra(cache.monthlyAvgSupra || null);
-      setLastSyncTime(
-        cache.lastSyncTime != null ? cache.lastSyncTime : updatedAtMs || null
-      );
-
-      setPagesProcessed(0);
-      setProgressPercent(0);
-      setHasStats(true);
     },
-    [hasAccess, runGasCalculationWithCache]
+    []
   );
 
   // -------------------------------
-  // REACT TO CONNECTION + ACCESS
+  // REACT TO CONNECTION (CACHE ONLY)
   // -------------------------------
 
   useEffect(() => {
@@ -646,11 +650,10 @@ export default function GasFeeStats({ isSfxMuted }) {
       return;
     }
 
-    if (hasAccess === null) return;
-    if (hasAccess === false) return;
-
+    // On connect, ONLY load cached gas stats (if any).
+    // No automatic full scan; user must click Sync.
     runAccessAndMaybeCalc(address);
-  }, [connected, address, hasAccess, runAccessAndMaybeCalc]);
+  }, [connected, address, runAccessAndMaybeCalc]);
 
   // -------------------------------
   // LOAD RIFT COOLDOWN ON ADDRESS CHANGE
@@ -777,8 +780,10 @@ export default function GasFeeStats({ isSfxMuted }) {
       if (t < 1) {
         rafId = requestAnimationFrame(step);
       } else {
+        // Drain completes naturally, THEN we allow recharge logic to take over.
         setDrainValue(0);
         setIsDraining(false);
+        setManualSyncActive(false);
       }
     };
 
@@ -944,31 +949,35 @@ export default function GasFeeStats({ isSfxMuted }) {
   // DETECT WALLET INSTALLED
   // -------------------------------
 
-  const walletInstalled =
-    mounted &&
-    typeof window !== "undefined" &&
-    "starkey" in window &&
-    !!window.starkey?.supra;
+  const { walletInstalled, providerReady } = useWallet();
 
   // -------------------------------
   // BUTTON LABEL
   // -------------------------------
 
-  const buttonLabel = !connected
-    ? connecting
-      ? "Connecting…"
-      : walletInstalled
-      ? "Connect Starkey Wallet"
-      : "Install Starkey Wallet"
-    : loadingAccess
-    ? "Checking Access…"
-    : hasAccess === false
-    ? "Access Denied (1,000 $SUPRAWR Needed)"
-    : calculating
-    ? "Syncing…"
-    : hasStats && cooldownActive
-    ? `Rift Energy Recharging… ${cooldownRemainingSeconds}s`
-    : "Sync Rift Data";
+  let buttonLabel = "";
+
+  if (!connected) {
+    if (connecting) {
+      buttonLabel = "Connecting…";
+    } else if (!providerReady) {
+      buttonLabel = "Detecting Wallet…";
+    } else if (!walletInstalled) {
+      buttonLabel = "Install Starkey Wallet";
+    } else {
+      buttonLabel = "Connect Starkey Wallet";
+    }
+  } else if (loadingAccess) {
+    buttonLabel = "Checking Access…";
+  } else if (hasAccess === false) {
+    buttonLabel = "Access Denied (1,000 $SUPRAWR Needed)";
+  } else if (calculating) {
+    buttonLabel = "Syncing…";
+  } else if (hasStats && cooldownActive) {
+    buttonLabel = `Rift Energy Recharging… ${cooldownRemainingSeconds}s`;
+  } else {
+    buttonLabel = "Sync Rift Data";
+  }
 
   const isButtonDisabled =
     connecting ||
@@ -1008,7 +1017,7 @@ export default function GasFeeStats({ isSfxMuted }) {
       100,
       Math.max(0, progressPercent || 5)
     );
-    progressLabelText = `Syncing txs... Pages processed: ${pagesProcessed}`;
+    progressLabelText = `Tx pages processed: ${pagesProcessed}`;
   } else if (hasStats) {
     displayProgressPercent = 100;
     progressLabelText = "Last sync complete";
@@ -1272,7 +1281,7 @@ const riftStatusLabelText = calculating
         {error && <div className="alert error">{error}</div>}
 
         {/* RESULTS WITH MATRIX EFFECT */}
-        {connected && hasAccess && !error && (
+        {connected && !error && (
           <div className="results">
             {/* TX COUNT */}
             <div className="result-row">
@@ -1280,7 +1289,9 @@ const riftStatusLabelText = calculating
               <span className="result-value">
                 {calculating
                   ? matrixTx || "00000"
-                  : formattedTxCount}
+                  : hasStats
+                  ? formattedTxCount
+                  : "Sync for data"}
               </span>
             </div>
 
@@ -1292,7 +1303,9 @@ const riftStatusLabelText = calculating
               <span className="result-value">
                 {calculating
                   ? matrixTotal || "~0.00M"
-                  : totalSupraDisplay}
+                  : hasStats
+                  ? totalSupraDisplay
+                  : "Sync for data"}
               </span>
             </div>
 
@@ -1304,7 +1317,9 @@ const riftStatusLabelText = calculating
               <span className="result-value">
                 {calculating
                   ? matrixAvg || "~0.00"
-                  : avgSupraDisplay}
+                  : hasStats
+                  ? avgSupraDisplay
+                  : "Sync for data"}
               </span>
             </div>
 
@@ -1316,7 +1331,9 @@ const riftStatusLabelText = calculating
               <span className="result-value">
                 {calculating
                   ? matrixMonthly || "~0.00K"
-                  : monthlySupraDisplay}
+                  : hasStats
+                  ? monthlySupraDisplay
+                  : "Sync for data"}
               </span>
             </div>
           </div>

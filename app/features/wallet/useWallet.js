@@ -6,8 +6,7 @@ import { WalletContext } from "./WalletProvider";
 export function useWallet() {
   const ctx = useContext(WalletContext);
 
-  // Safety fallback so destructuring never explodes, even if somehow
-  // used outside the provider.
+  // Keep fallback but expose stable shape
   if (!ctx) {
     return {
       providerReady: false,

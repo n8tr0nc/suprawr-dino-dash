@@ -29,19 +29,7 @@ export default function RiftEntryOverlay({
   const [isConnecting, setIsConnecting] = useState(false);
   const [isEntering, setIsEntering] = useState(false);
 
-  const { connect, connected } = useWallet();
-
-  // Detect whether Starkey is installed (for button label)
-  const [walletInstalled, setWalletInstalled] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const hasStarkey =
-      "starkey" in window && !!window.starkey?.supra;
-
-    setWalletInstalled(hasStarkey);
-  }, []);
+  const { connect, connected, walletInstalled, providerReady } = useWallet();
 
   // Single shared audio instance for terminal "ping" SFX
   const audioRef = useRef(null);
@@ -297,9 +285,11 @@ export default function RiftEntryOverlay({
         >
           {isConnecting
             ? "Connecting Starkey Wallet…"
-            : walletInstalled
-            ? "Connect Starkey Wallet"
-            : "Install Starkey Wallet"}
+            : !providerReady
+            ? "Detecting Wallet…"
+            : !walletInstalled
+            ? "Install Starkey Wallet"
+            : "Connect Starkey Wallet"}
         </button>
 
         <button

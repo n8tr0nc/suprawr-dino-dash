@@ -115,14 +115,21 @@ export function StatsProvider({ children }) {
         const priceJson = priceRes.ok ? await priceRes.json() : null;
 
         // SUPRA balance
-        let supraDisplay = null;
-        if (
-          supraJson &&
-          supraJson.ok !== false &&
-          typeof supraJson.balanceDisplay === "string"
-        ) {
-          supraDisplay = supraJson.balanceDisplay;
+        // Default to "0" so empty / missing balances still display as ~0.00
+        let supraDisplay = "0";
+
+        if (supraJson && supraJson.ok !== false) {
+          if (typeof supraJson.balanceDisplay === "string") {
+            supraDisplay = supraJson.balanceDisplay;
+          } else if (
+            typeof supraJson.balanceDisplay === "number" &&
+            Number.isFinite(supraJson.balanceDisplay)
+          ) {
+            // Convert numeric zero (0) into string "0"
+            supraDisplay = String(supraJson.balanceDisplay);
+          }
         }
+
         setSupraBalance(supraDisplay);
 
         // USD price for SUPRA  **(fixed to match /api/supra-price)**
