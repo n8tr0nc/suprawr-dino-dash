@@ -787,49 +787,6 @@ export default function GasFeeStats({ isSfxMuted }) {
     chargeAudioRef.current = audio;
   }, []);
 
-  // Reset charge sound flag whenever a new cooldown cycle starts
-  useEffect(() => {
-    // Any time cooldownEndMs changes (new scan / cleared cooldown),
-    // allow the recharge sound to play again for the next cycle.
-    chargeSoundPlayedRef.current = false;
-  }, [cooldownEndMs]);
-
-  // CHARGE SOUND — play once when energy recharge begins (SFX-mute aware)
-  useEffect(() => {
-    const audio = chargeAudioRef.current;
-    if (!audio) return;
-
-    // If SFX is muted or we’re missing basics, do nothing
-    if (!connected || !address || isSfxMuted || !hasStats) return;
-
-    // Don’t play while draining or actively syncing
-    if (isDraining || (manualSyncActive && calculating)) return;
-
-    // If we still have an active cooldown, wait
-    const now = nowMs || Date.now();
-    if (cooldownEndMs && now < cooldownEndMs) return;
-
-    // If this cycle already played the recharge sound, bail
-    if (chargeSoundPlayedRef.current) return;
-
-    // Play once
-    try {
-      audio.currentTime = 0;
-      audio.play().catch(() => {});
-    } catch {}
-
-    chargeSoundPlayedRef.current = true;
-  }, [
-    connected,
-    address,
-    hasStats,
-    isDraining,
-    manualSyncActive,
-    calculating,
-    cooldownEndMs,
-    nowMs,
-    isSfxMuted,
-  ]);
 
   // -------------------------------
   // DRAIN ANIMATION (1 → 0 over 3s)
