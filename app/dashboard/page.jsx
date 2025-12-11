@@ -25,6 +25,8 @@ const BG_BASE_VOLUME = 0.25;
 // --------------------------
 function getRankBadgePath(tier) {
   switch (tier) {
+    case "Unranked":
+      return "/rank/unranked-001.webp";
     case "Hatchling":
       return "/rank/hatchling-001.webp";
     case "Scaleborn":
