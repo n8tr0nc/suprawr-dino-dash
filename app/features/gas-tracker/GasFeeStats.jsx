@@ -387,6 +387,16 @@ function saveRiftCooldown(address, endMs) {
   } catch {}
 }
 
+function clearRiftCooldown(address) {
+  if (typeof window === "undefined") return;
+  const key = getRiftCooldownKey(address);
+  if (!key) return;
+
+  try {
+    window.localStorage.removeItem(key);
+  } catch {}
+}
+
 // -------------------- MAIN COMPONENT --------------------
 
 export default function GasFeeStats({ isSfxMuted }) {
@@ -441,6 +451,12 @@ export default function GasFeeStats({ isSfxMuted }) {
   // RAF refs for draining + energy charge loops
   const drainRafRef = useRef(null);
   const energyRafRef = useRef(null);
+
+  // Track last known address so disconnect cleanup can clear persisted cooldown
+  const lastAddrRef = useRef(null);
+
+  // Track cooldown interval so we can hard-stop it on disconnect
+  const cooldownIntervalRef = useRef(null);
 
   // -------------------------------
   // NEW: MATRIX EFFECT STATE
@@ -663,7 +679,20 @@ export default function GasFeeStats({ isSfxMuted }) {
   setManualSyncActive(false);
   setCalculating(false);
   setCooldownEndMs(null);
-  setNowMs(Date.now()); // forces cooldown to clear
+setNowMs(Date.now()); // forces cooldown to clear
+setEnergyAnim(0);     // kill any in-progress charge animation state
+
+// Hard-stop cooldown interval immediately
+if (cooldownIntervalRef.current) {
+  clearInterval(cooldownIntervalRef.current);
+  cooldownIntervalRef.current = null;
+}
+
+// Clear persisted cooldown so recharge cannot resume on reconnect
+if (lastAddrRef.current) {
+  clearRiftCooldown(lastAddrRef.current);
+}
+
 
   //
   // KILL TIMERS
@@ -732,12 +761,14 @@ export default function GasFeeStats({ isSfxMuted }) {
   // -------------------------------
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+  if (typeof window === "undefined") return;
 
     if (!address) {
       setCooldownEndMs(null);
       return;
     }
+
+    lastAddrRef.current = address;
 
     const stored = loadRiftCooldown(address);
     if (!stored) {
@@ -757,17 +788,31 @@ export default function GasFeeStats({ isSfxMuted }) {
   // -------------------------------
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (!cooldownEndMs) return;
+  if (typeof window === "undefined") return;
 
+  // Hard stop any previous interval
+  if (cooldownIntervalRef.current) {
+    window.clearInterval(cooldownIntervalRef.current);
+    cooldownIntervalRef.current = null;
+  }
+
+  if (!cooldownEndMs) return;
+
+  setNowMs(Date.now());
+
+  const id = window.setInterval(() => {
     setNowMs(Date.now());
+  }, 500);
 
-    const id = window.setInterval(() => {
-      setNowMs(Date.now());
-    }, 500);
+  cooldownIntervalRef.current = id;
 
-    return () => window.clearInterval(id);
-  }, [cooldownEndMs]);
+  return () => {
+    if (cooldownIntervalRef.current) {
+      window.clearInterval(cooldownIntervalRef.current);
+      cooldownIntervalRef.current = null;
+    }
+  };
+}, [cooldownEndMs]);
 
   // -------------------------------
   // ENERGY CHARGE ANIMATION (VISUAL ONLY)
