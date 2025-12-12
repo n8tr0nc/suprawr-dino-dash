@@ -77,9 +77,51 @@ export default function Page() {
   const [isBgMuted, setIsBgMuted] = useState(false);
 
   // --------------------------
-  // NEW: Global SFX mute
+  // Global SFX mute
   // --------------------------
   const [isSfxMuted, setIsSfxMuted] = useState(false);
+
+  // --------------------------
+  // Modal open SFX
+  // --------------------------
+  const modalAudioRef = useRef(null);
+  const modalSoundPlayedRef = useRef(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (modalAudioRef.current) return;
+
+    const audio = new Audio("/audio/modal-001.mp3");
+    audio.loop = false;
+    audio.volume = 0.35;
+    modalAudioRef.current = audio;
+
+    return () => {
+      try {
+        audio.pause();
+        audio.currentTime = 0;
+      } catch {}
+      modalAudioRef.current = null;
+      modalSoundPlayedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const audio = modalAudioRef.current;
+    if (!audio) return;
+    audio.volume = isSfxMuted ? 0 : 0.35;
+  }, [isSfxMuted]);
+
+  const playModalOpenSfx = useCallback(() => {
+    const audio = modalAudioRef.current;
+    if (!audio) return;
+
+    // Reset + play once on each open.
+    try {
+      audio.currentTime = 0;
+      audio.play().catch(() => {});
+    } catch {}
+  }, []);
 
   // Init bg audio
   useEffect(() => {
@@ -216,6 +258,7 @@ export default function Page() {
     if (rankModalTimerRef.current)
       clearTimeout(rankModalTimerRef.current);
 
+    playModalOpenSfx();
     setIsRankModalExiting(false);
     setShowRankModal(true);
   };
@@ -289,6 +332,13 @@ export default function Page() {
             onToggleSfxMute={handleToggleSfxMute} // NEW
           />
 
+          {/* Announcement/News */}
+          <section className="dashboard-panel panel-100">
+            <div className="dashboard-panel-body">
+              <h5 className="news">We've begunn integrating <a href="https://mobula.io" target="_blank" rel="noopener noreferrer">Mobula</a>, the leader in Supra blockchain indexing, to unlock deeper, more reliable on-chain data and analytics.</h5>
+            </div>
+          </section>
+
           <GasTracker isSfxMuted={isSfxMuted} />
 
           <section className="dashboard-panel panel-25">
@@ -309,7 +359,7 @@ export default function Page() {
         </div>
       </div>
 
-      {/* Rank Modal — unchanged except props flow */}
+      {/* Rank Modal */}
       {showRankModal && (
         <div
           className={`modal-001-overlay rank-modal-overlay${

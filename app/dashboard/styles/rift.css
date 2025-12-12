@@ -337,7 +337,6 @@
   display: inline-block;
   width: 6px;
   height: 11px;
-  margin-left: 4px;
   background: #c3ffc3;
   animation: rift-terminal-caret 0.9s steps(2, start) infinite;
 }

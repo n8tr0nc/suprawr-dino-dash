@@ -448,6 +448,9 @@ export default function GasFeeStats({ isSfxMuted }) {
 
   const chargeAudioRef = useRef(null);
 
+  // Modal open SFX
+  const modalAudioRef = useRef(null);
+
   // RAF refs for draining + energy charge loops
   const drainRafRef = useRef(null);
   const energyRafRef = useRef(null);
@@ -496,6 +499,15 @@ export default function GasFeeStats({ isSfxMuted }) {
     if (infoTimerRef.current) {
       clearTimeout(infoTimerRef.current);
       infoTimerRef.current = null;
+    }
+
+    // Play modal open SFX (volume is controlled by SFX mute effect)
+    const audio = modalAudioRef.current;
+    if (audio) {
+      try {
+        audio.currentTime = 0;
+        audio.play().catch(() => {});
+      } catch {}
     }
 
     setIsInfoExiting(false);
@@ -855,6 +867,44 @@ if (lastAddrRef.current) {
       }
     };
   }, [connected, address, cooldownEndMs, isDraining, manualSyncActive, calculating]);
+
+  // -------------------------------
+  // INIT MODAL SOUND
+  // -------------------------------
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (modalAudioRef.current) return;
+
+    const audio = new Audio("/audio/modal-001.mp3");
+    audio.loop = false;
+    audio.volume = 0.35;
+    modalAudioRef.current = audio;
+
+    return () => {
+      try {
+        audio.pause();
+        audio.currentTime = 0;
+      } catch {}
+      modalAudioRef.current = null;
+    };
+  }, []);
+
+  // Keep modal sound “running muted” behavior consistent with other SFX
+  useEffect(() => {
+    const audio = modalAudioRef.current;
+    if (!audio) return;
+    audio.volume = isSfxMuted ? 0 : 0.35;
+  }, [isSfxMuted]);
+
+  const playModalOpenSfx = useCallback(() => {
+    const audio = modalAudioRef.current;
+    if (!audio) return;
+
+    try {
+      audio.currentTime = 0;
+      audio.play().catch(() => {});
+    } catch {}
+  }, []);
 
   // -------------------------------
   // INIT DRAIN SOUND
@@ -1394,9 +1444,11 @@ const riftStatusLabelText = riftStatusLabel;
 
         {/* Connected Wallet */}
         <div className="field-block">
-          <label htmlFor="wallet" className="field-label">
-            Connected Supra Wallet
-          </label>
+          <div className="rift-energy-header">
+            <label htmlFor="wallet" className="rift-energy-title">
+              Connected Supra Wallet
+            </label>
+            </div>
           <input
             id="wallet"
             type="text"

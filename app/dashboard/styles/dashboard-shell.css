@@ -13,7 +13,6 @@
     #010302 100%
   );*/
   background: #000000;
-  color: #feeecd;
   transition: opacity 0.5s ease-out, filter 0.5s ease-out;
 }
 
@@ -142,8 +141,8 @@
   font-size: 1rem;
   letter-spacing: 0;
   text-transform: uppercase;
-  color: #c3ffc3;
   margin: 0;
+  color: #aaaaaa;
 }
 
 .sidebar-modules-list {
@@ -226,7 +225,6 @@
   font-size: 1.8rem;
   letter-spacing: 0;
   text-transform: uppercase;
-  color: #c3ffc3;
 }
 
 .dashboard-subtitle {
@@ -319,18 +317,23 @@
   opacity: 0.9;
 }
 
+.panel-100 {
+  width: 100%;
+  flex-grow: 1;
+}
+
 .panel-75 {
   width: 70%;
   flex-grow: 1;
 }
 
-.panel-25 {
-  width: 20%;
+.panel-50 {
+  width: 45%;
   flex-grow: 1;
 }
 
-.panel-50 {
-  width: 45%;
+.panel-25 {
+  width: 20%;
   flex-grow: 1;
 }
 
@@ -723,7 +726,7 @@ button.sidebar-rank:hover {
 /* NEW: SUPRA native balance row in sidebar */
 
 .sidebar-balance-line-label {
-  color: #feeecd;
+  color: #c3ffc3;
   font-weight: 600;
   font-size: 0.9rem;
   font-family: monospace;
@@ -1203,4 +1206,8 @@ button.sidebar-rank:hover {
   border-radius: 2px;
   transform: rotate(40deg);
   box-shadow: 0 0 6px #7ae97a;
+}
+
+h5.news {
+  color: #30d630;
 }
