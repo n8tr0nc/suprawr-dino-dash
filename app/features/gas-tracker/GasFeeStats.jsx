@@ -448,8 +448,9 @@ export default function GasFeeStats({ isSfxMuted }) {
 
   const chargeAudioRef = useRef(null);
 
-  // Modal open SFX
+  // Modal open / close SFX
   const modalAudioRef = useRef(null);
+  const modalCloseAudioRef = useRef(null);
 
   // RAF refs for draining + energy charge loops
   const drainRafRef = useRef(null);
@@ -516,6 +517,14 @@ export default function GasFeeStats({ isSfxMuted }) {
 
   const handleCloseInfo = useCallback(() => {
     if (!showInfo) return;
+
+    const audio = modalCloseAudioRef.current;
+    if (audio) {
+      try {
+        audio.currentTime = 0;
+        audio.play().catch(() => {});
+      } catch {}
+    }
 
     setIsInfoExiting(true);
 
@@ -869,31 +878,45 @@ if (lastAddrRef.current) {
   }, [connected, address, cooldownEndMs, isDraining, manualSyncActive, calculating]);
 
   // -------------------------------
-  // INIT MODAL SOUND
+  // INIT MODAL SOUNDS
   // -------------------------------
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (modalAudioRef.current) return;
 
-    const audio = new Audio("/audio/modal-001.mp3");
-    audio.loop = false;
-    audio.volume = 0.35;
-    modalAudioRef.current = audio;
+    if (!modalAudioRef.current) {
+      const openAudio = new Audio("/audio/modal-001.mp3");
+      openAudio.loop = false;
+      openAudio.volume = 0.35;
+      modalAudioRef.current = openAudio;
+    }
+
+    if (!modalCloseAudioRef.current) {
+      const closeAudio = new Audio("/audio/modal-002.mp3");
+      closeAudio.loop = false;
+      closeAudio.volume = 0.35;
+      modalCloseAudioRef.current = closeAudio;
+    }
 
     return () => {
-      try {
-        audio.pause();
-        audio.currentTime = 0;
-      } catch {}
+      [modalAudioRef.current, modalCloseAudioRef.current].forEach((a) => {
+        if (!a) return;
+        try {
+          a.pause();
+          a.currentTime = 0;
+        } catch {}
+      });
       modalAudioRef.current = null;
+      modalCloseAudioRef.current = null;
     };
   }, []);
 
   // Keep modal sound “running muted” behavior consistent with other SFX
   useEffect(() => {
-    const audio = modalAudioRef.current;
-    if (!audio) return;
-    audio.volume = isSfxMuted ? 0 : 0.35;
+    const openA = modalAudioRef.current;
+    const closeA = modalCloseAudioRef.current;
+
+    if (openA) openA.volume = isSfxMuted ? 0 : 0.35;
+    if (closeA) closeA.volume = isSfxMuted ? 0 : 0.35;
   }, [isSfxMuted]);
 
   const playModalOpenSfx = useCallback(() => {

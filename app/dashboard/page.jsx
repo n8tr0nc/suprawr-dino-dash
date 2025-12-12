@@ -82,34 +82,47 @@ export default function Page() {
   const [isSfxMuted, setIsSfxMuted] = useState(false);
 
   // --------------------------
-  // Modal open SFX
+  // Modal open / close SFX
   // --------------------------
   const modalAudioRef = useRef(null);
-  const modalSoundPlayedRef = useRef(false);
+  const modalCloseAudioRef = useRef(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (modalAudioRef.current) return;
 
-    const audio = new Audio("/audio/modal-001.mp3");
-    audio.loop = false;
-    audio.volume = 0.35;
-    modalAudioRef.current = audio;
+    if (!modalAudioRef.current) {
+      const openAudio = new Audio("/audio/modal-001.mp3");
+      openAudio.loop = false;
+      openAudio.volume = 0.35;
+      modalAudioRef.current = openAudio;
+    }
+
+    if (!modalCloseAudioRef.current) {
+      const closeAudio = new Audio("/audio/modal-002.mp3");
+      closeAudio.loop = false;
+      closeAudio.volume = 0.35;
+      modalCloseAudioRef.current = closeAudio;
+    }
 
     return () => {
-      try {
-        audio.pause();
-        audio.currentTime = 0;
-      } catch {}
+      [modalAudioRef.current, modalCloseAudioRef.current].forEach((a) => {
+        if (!a) return;
+        try {
+          a.pause();
+          a.currentTime = 0;
+        } catch {}
+      });
       modalAudioRef.current = null;
-      modalSoundPlayedRef.current = false;
+      modalCloseAudioRef.current = null;
     };
   }, []);
 
   useEffect(() => {
-    const audio = modalAudioRef.current;
-    if (!audio) return;
-    audio.volume = isSfxMuted ? 0 : 0.35;
+    const openA = modalAudioRef.current;
+    const closeA = modalCloseAudioRef.current;
+
+    if (openA) openA.volume = isSfxMuted ? 0 : 0.35;
+    if (closeA) closeA.volume = isSfxMuted ? 0 : 0.35;
   }, [isSfxMuted]);
 
   const playModalOpenSfx = useCallback(() => {
@@ -265,6 +278,14 @@ export default function Page() {
 
   const handleCloseRankModal = () => {
     if (!showRankModal) return;
+
+    const audio = modalCloseAudioRef.current;
+    if (audio) {
+      try {
+        audio.currentTime = 0;
+        audio.play().catch(() => {});
+      } catch {}
+    }
 
     setIsRankModalExiting(true);
 
