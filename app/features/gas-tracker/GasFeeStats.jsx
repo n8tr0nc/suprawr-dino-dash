@@ -915,8 +915,8 @@ if (lastAddrRef.current) {
     const openA = modalAudioRef.current;
     const closeA = modalCloseAudioRef.current;
 
-    if (openA) openA.volume = isSfxMuted ? 0 : 0.35;
-    if (closeA) closeA.volume = isSfxMuted ? 0 : 0.35;
+    if (openA) openA.volume = isSfxMuted ? 0 : 0.5;
+    if (closeA) closeA.volume = isSfxMuted ? 0 : 0.5;
   }, [isSfxMuted]);
 
   const playModalOpenSfx = useCallback(() => {
@@ -964,7 +964,7 @@ if (lastAddrRef.current) {
 
     const audio = new Audio("/audio/charge-006.mp3");
     audio.loop = false;
-    audio.volume = 0.2;
+    audio.volume = 0.1;
     chargeAudioRef.current = audio;
   }, []);
 
@@ -1093,7 +1093,7 @@ if (lastAddrRef.current) {
     const audio = chargeAudioRef.current;
     if (!audio) return;
 
-    audio.volume = isSfxMuted ? 0 : 0.2;
+    audio.volume = isSfxMuted ? 0 : 0.1;
   }, [isSfxMuted]);
 
   // -------------------------------

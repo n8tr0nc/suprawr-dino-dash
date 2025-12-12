@@ -93,7 +93,7 @@ export default function Page() {
     if (!modalAudioRef.current) {
       const openAudio = new Audio("/audio/modal-001.mp3");
       openAudio.loop = false;
-      openAudio.volume = 0.35;
+      openAudio.volume = 0.5;
       modalAudioRef.current = openAudio;
     }
 
