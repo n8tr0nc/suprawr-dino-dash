@@ -438,6 +438,10 @@ export default function GasFeeStats({ isSfxMuted }) {
 
   const chargeAudioRef = useRef(null);
 
+  // RAF refs for draining + energy charge loops
+  const drainRafRef = useRef(null);
+  const energyRafRef = useRef(null);
+
   // -------------------------------
   // NEW: MATRIX EFFECT STATE
   // -------------------------------
@@ -638,31 +642,85 @@ export default function GasFeeStats({ isSfxMuted }) {
   // -------------------------------
 
   useEffect(() => {
-    if (!connected || !address) {
-      setTxCount(0);
-      setTotalSupra(null);
-      setAvgSupra(null);
-      setMonthlyAvgSupra(null);
-      setPagesProcessed(0);
-      setProgressPercent(0);
-      setHasStats(false);
-      setLastSyncTime(null);
-      setIsDraining(false);
-      setDrainValue(1);
-      setManualSyncActive(false);
-      setCooldownEndMs(null);
+  if (!connected || !address) {
+  //
+  // RESET ALL GAS DATA
+  //
+  setTxCount(0);
+  setTotalSupra(null);
+  setAvgSupra(null);
+  setMonthlyAvgSupra(null);
+  setPagesProcessed(0);
+  setProgressPercent(0);
+  setHasStats(false);
+  setLastSyncTime(null);
 
-      const a = drainAudioRef.current;
-      if (a) {
-        try {
-          a.pause();
-          a.currentTime = 0;
-        } catch {}
-      }
-      drainSoundPlayedRef.current = false;
+  //
+  // STOP ALL STATES & PROCESSES
+  //
+  setIsDraining(false);
+  setDrainValue(1);
+  setManualSyncActive(false);
+  setCalculating(false);
+  setCooldownEndMs(null);
+  setNowMs(Date.now()); // forces cooldown to clear
 
-      return;
-    }
+  //
+  // KILL TIMERS
+  //
+  if (infoTimerRef.current) {
+    clearTimeout(infoTimerRef.current);
+    infoTimerRef.current = null;
+  }
+
+  //
+  // CANCEL ANY ACTIVE RAF LOOPS
+  //
+  if (drainRafRef.current) {
+    cancelAnimationFrame(drainRafRef.current);
+    drainRafRef.current = null;
+  }
+  if (energyRafRef.current) {
+    cancelAnimationFrame(energyRafRef.current);
+    energyRafRef.current = null;
+  }
+
+  //
+  // STOP SCAN PROCESS LOOP SAFELY
+  //
+  calcRunIdRef.current += 1; 
+  // This invalidates all in-flight async calculations instantly.
+
+  //
+  // STOP ALL SOUND
+  //
+  const drainA = drainAudioRef.current;
+  if (drainA) {
+    try {
+      drainA.pause();
+      drainA.currentTime = 0;
+    } catch {}
+  }
+  drainSoundPlayedRef.current = false;
+
+  const scanA = scanAudioRef.current;
+  if (scanA) {
+    try {
+      scanA.pause();
+      scanA.currentTime = 0;
+    } catch {}
+  }
+
+  const chargeA = chargeAudioRef.current;
+  if (chargeA) {
+    try {
+      chargeA.pause();
+      chargeA.currentTime = 0;
+    } catch {}
+  }
+
+  return;
+}
 
     // On connect, ONLY load cached gas stats (if any).
     // No automatic full scan; user must click Sync.
@@ -726,6 +784,7 @@ export default function GasFeeStats({ isSfxMuted }) {
     if (cooldownEndMs && cooldownEndMs > Date.now()) return;
 
     let rafId;
+    energyRafRef.current = null;
     const duration = 400;
 
     setEnergyAnim(0);
@@ -738,13 +797,17 @@ export default function GasFeeStats({ isSfxMuted }) {
 
       if (t < 1) {
         rafId = requestAnimationFrame(step);
+        energyRafRef.current = rafId;
       }
     };
 
     rafId = requestAnimationFrame(step);
 
     return () => {
-      if (rafId) cancelAnimationFrame(rafId);
+      if (energyRafRef.current) {
+        cancelAnimationFrame(energyRafRef.current);
+        energyRafRef.current = null;
+      }
     };
   }, [connected, address, cooldownEndMs, isDraining, manualSyncActive, calculating]);
 
@@ -796,6 +859,7 @@ export default function GasFeeStats({ isSfxMuted }) {
     if (!isDraining) return;
 
     let rafId;
+    drainRafRef.current = null;
     const duration = 3000;
 
     setDrainValue(1);
@@ -809,6 +873,7 @@ export default function GasFeeStats({ isSfxMuted }) {
 
       if (t < 1) {
         rafId = requestAnimationFrame(step);
+        drainRafRef.current = rafId;
       } else {
         // Drain completes; keep manualSyncActive true while scan is still running.
         setDrainValue(0);
@@ -817,11 +882,16 @@ export default function GasFeeStats({ isSfxMuted }) {
     };
 
     rafId = requestAnimationFrame(step);
-    return () => rafId && cancelAnimationFrame(rafId);
+    return () => {
+      if (drainRafRef.current) {
+        cancelAnimationFrame(drainRafRef.current);
+        drainRafRef.current = null;
+      }
+    };
   }, [isDraining]);
 
   // -------------------------------
-  // DRAIN SOUND (SFX-mute aware)
+  // DRAIN SOUND (plays once per drain)
   // -------------------------------
 
   useEffect(() => {
@@ -833,15 +903,7 @@ export default function GasFeeStats({ isSfxMuted }) {
     const audio = drainAudioRef.current;
     if (!audio) return;
 
-    if (isSfxMuted) {
-      try {
-        audio.pause();
-        audio.currentTime = 0;
-      } catch {}
-      drainSoundPlayedRef.current = false;
-      return;
-    }
-
+    // Only start the sound once per drain cycle
     if (drainSoundPlayedRef.current) return;
 
     try {
@@ -850,7 +912,19 @@ export default function GasFeeStats({ isSfxMuted }) {
     } catch {}
 
     drainSoundPlayedRef.current = true;
-  }, [isDraining, isSfxMuted]);
+  }, [isDraining]);
+
+  // -------------------------------
+  // DRAIN VOLUME – respond to SFX mute
+  // -------------------------------
+
+  useEffect(() => {
+    const audio = drainAudioRef.current;
+    if (!audio) return;
+
+    // Mute = volume 0, but keep playback running so it can resume mid-sound
+    audio.volume = isSfxMuted ? 0 : 0.4;
+  }, [isSfxMuted]);
 
   // -------------------------------
   // SCAN SOUND (loop while calculating)
@@ -860,8 +934,7 @@ export default function GasFeeStats({ isSfxMuted }) {
     const audio = scanAudioRef.current;
     if (!audio) return;
 
-    const shouldStop =
-      !calculating || !connected || !address || isSfxMuted;
+    const shouldStop = !calculating || !connected || !address;
 
     if (shouldStop) {
       try {
@@ -882,22 +955,27 @@ export default function GasFeeStats({ isSfxMuted }) {
         audio.currentTime = 0;
       } catch {}
     };
-  }, [calculating, connected, address, isSfxMuted]);
+  }, [calculating, connected, address]);
 
   // -------------------------------
-  // CHARGE SOUND – respond to mute toggle
+  // SCAN VOLUME – respond to SFX mute
+  // -------------------------------
+
+  useEffect(() => {
+    const audio = scanAudioRef.current;
+    if (!audio) return;
+
+    audio.volume = isSfxMuted ? 0 : 0.2;
+  }, [isSfxMuted]);
+
+  // -------------------------------
+  // CHARGE VOLUME – respond to SFX mute
   // -------------------------------
   useEffect(() => {
     const audio = chargeAudioRef.current;
     if (!audio) return;
 
-    // If muted during playback → stop immediately
-    if (isSfxMuted) {
-      try {
-        audio.pause();
-        audio.currentTime = 0;
-      } catch {}
-    }
+    audio.volume = isSfxMuted ? 0 : 0.2;
   }, [isSfxMuted]);
 
   // -------------------------------
@@ -1078,15 +1156,20 @@ export default function GasFeeStats({ isSfxMuted }) {
   let energyProgress = 0;
 
   if (!connected || !address) {
+    // No wallet
     energyProgress = 0;
   } else if (isDraining) {
+    // Drain animation (1 → 0)
     energyProgress = Math.max(0, Math.min(1, drainValue));
   } else if (manualSyncActive && calculating) {
+    // Stay empty only while scan is happening
     energyProgress = 0;
   } else if (cooldownActive) {
+    // Recharge after scan completes
     energyProgress = cooldownProgress;
   } else {
-    energyProgress = Math.min(1, Math.max(0, energyAnim));
+    // Idle/ready should remain full (no bounce)
+    energyProgress = 1;
   }
 
   const isEnergyFull =
